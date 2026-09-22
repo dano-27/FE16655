@@ -1,0 +1,16 @@
+# Netlify serves these headers alongside the files.
+#
+# The HTML must never be cached: it is the file that changes every time the
+# studio visit is updated, and a stale copy is what makes a new deploy look
+# like nothing happened — especially from an iOS Home Screen shortcut, which
+# runs as a standalone app with its own cache.
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Images and video can be cached hard: their filenames change when the work
+# changes, so a cached copy is never the wrong copy.
+/images/*
+  Cache-Control: public, max-age=31536000

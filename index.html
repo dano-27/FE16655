@@ -1,0 +1,2725 @@
+<!DOCTYPE html>
+<html lang="en" style="background:#000">
+<head>
+<meta charset="UTF-8">
+<!-- Added to Home Screen, iOS runs this as a standalone app with its own
+     stubborn cache — these ask it to re-check the server on each launch so a
+     new Netlify deploy actually shows up. -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Studio Visit">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Ana Lucía Cano — Private Viewing</title>
+<!-- No external resources. This runs from an iPad with no network at all, so
+     everything it needs is in this folder. Helvetica Neue is native to iOS and
+     is what actually rendered here anyway; the old Google Fonts link only
+     added a request that would hang offline. -->
+<style>
+  :root{
+    --room:#000000; --room-deep:#000000; --ivory:#EAE3D6;
+    --ivory-dim:#98918A; --ivory-faint:#57524D; --canvas:#0E0C0B;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;background:var(--room)}
+  body{font-family:'Helvetica Neue',Helvetica,'Inter',Arial,sans-serif;font-weight:300;color:var(--ivory);-webkit-font-smoothing:antialiased}
+
+  #gallery{position:fixed;inset:0}
+  .room{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    opacity:0;visibility:hidden;transition:opacity .7s ease, visibility 0s .7s;padding:4vh 9vw;
+  }
+  .room.active{opacity:1;visibility:visible;transition:opacity .7s ease}
+  .room:has(.work){padding:0}
+
+  .threshold{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    background:var(--room);pointer-events:none;opacity:0;z-index:3;transition:opacity .45s ease;
+  }
+  .threshold.show{opacity:1}
+  .threshold span{
+    font-family:'Helvetica Neue',Helvetica,'Inter',Arial,sans-serif;font-weight:200;
+    font-size:clamp(20px,3.1vw,36px);letter-spacing:.22em;text-transform:lowercase;color:var(--ivory-dim);
+    text-align:center;padding:0 8vw;
+  }
+
+  .cover-name{
+    font-family:'Helvetica Neue',Helvetica,'Inter',Arial,sans-serif;font-weight:300;
+    font-size:clamp(38px,6.5vw,84px);letter-spacing:.22em;text-transform:uppercase;
+    text-indent:.22em;text-align:center;line-height:1.25;cursor:pointer;
+  }
+  .cover-sub{
+    margin-top:3.2vh;font-size:clamp(12px,1.3vw,15px);letter-spacing:.42em;
+    text-transform:uppercase;text-indent:.42em;color:var(--ivory-dim);text-align:center;
+  }
+  .cover-hint{
+    position:absolute;bottom:6vh;left:0;right:0;text-align:center;font-style:italic;
+    font-size:13px;color:var(--ivory-faint);letter-spacing:.08em;animation:breathe 4s ease-in-out infinite;
+  }
+  @keyframes breathe{0%,100%{opacity:.45}50%{opacity:.9}}
+
+  .text-page{max-width:64ch;text-align:center}
+  /* The grid is not prose — let it break out of the 64ch reading column
+     and fill the room, while paragraphs above it stay comfortably narrow. */
+  /* The grid sits inside the 64ch reading column by default — that narrower
+     measure reads better alongside the hero video and the paragraphs. */
+  .text-page > .grid{
+    width:100%;
+  }
+  .about-room{justify-content:flex-start;overflow-y:auto;padding-top:17vh;padding-bottom:12vh;-webkit-overflow-scrolling:touch}
+  .notes-rotator{
+    display:flex;align-items:center;justify-content:center;
+    margin-top:8vh;height:40vh;
+  }
+  .notes-rotator .np{
+    text-align:center;
+    font-style:italic;font-weight:200;
+    font-size:clamp(16px,2vw,22px);line-height:1.8;letter-spacing:.03em;color:var(--ivory);
+  }
+  #paq-list .paq-q{
+    font-size:15px;letter-spacing:.14em;text-transform:none;
+    font-weight:500;color:var(--ivory);margin:4.5vh 0 1vh;
+  }
+  #paq-list .paq-q:first-of-type{margin-top:0}
+  #paq-list .paq-a{
+    font-style:italic;font-weight:200;
+    font-size:clamp(16px,2vw,22px);line-height:1.6;letter-spacing:.03em;color:var(--ivory);
+  }
+  .photo-seq{
+    position:relative;margin:0 auto 5vh;width:min(46vw,340px);aspect-ratio:3/4;
+    overflow:hidden;background:var(--canvas);
+  }
+  .about-room:has(.photo-seq.full){padding-top:0}
+  .photo-seq.full{
+    position:relative;width:100vw;height:100vh;height:100dvh;margin:0 0 12vh;
+    flex:0 0 auto;min-height:100vh;min-height:100dvh;
+    aspect-ratio:auto;background:#000;left:50%;transform:translateX(-50%);
+  }
+  .photo-seq.full .seq-frame{object-fit:contain}
+  .room:has(.grid){padding-left:1.25cm;padding-right:1.25cm}
+  .hero-video{
+    display:block;margin:0 auto 5vh;width:min(100%,420px);
+    max-height:52vh;object-fit:contain;background:var(--canvas);
+  }
+  /* The Studies hero is landscape, not portrait like the embroidery one — at
+     420px a wall-sized painting would read as a postage stamp. */
+  .hero-video.wide{width:min(100%,760px);max-height:46vh}
+  .hero-video{cursor:pointer}
+  .grid{
+    display:grid;grid-template-columns:repeat(5,1fr);gap:4px;
+    margin:7vh auto 0;width:100%;
+  }
+  .grid-item{
+    position:relative;width:100%;aspect-ratio:3/4;background:var(--canvas);
+    overflow:hidden;display:flex;align-items:center;justify-content:center;
+  }
+  .grid-item img{
+    width:100%;height:100%;object-fit:cover;cursor:pointer;
+    transition:opacity .4s;display:block;
+  }
+  .grid-item video{
+    width:100%;height:100%;object-fit:cover;display:block;
+    cursor:pointer;background:var(--canvas);
+  }
+  .grid-item img:hover{opacity:.75}
+  .grid-item.has-img::after{
+    content:'';position:absolute;right:10px;bottom:10px;z-index:1;
+    width:6px;height:6px;border-radius:50%;background:var(--ivory-dim);
+    animation:dotbreathe 3.5s ease-in-out infinite;pointer-events:none;
+  }
+  .grid-ph span{
+    font-style:italic;font-size:10px;letter-spacing:.25em;text-transform:lowercase;
+    color:var(--ivory-faint);
+  }
+  @media (max-width:900px){ .grid{grid-template-columns:repeat(4,1fr);gap:3px} }
+
+  /* Works overview: paintings keep their own proportions, so the grid is
+     irregular by nature. Masonry columns instead of fixed 3:4 cells. */
+  #works-grid{
+    display:block;
+    column-count:5;
+    column-gap:6px;
+    /* Five columns at the same image size as four needs 25% more width, so
+       this grid breaks out of the 64ch reading column (capped to leave the
+       arrow lanes clear). */
+    width:min(125%, calc(100vw - 2.5cm));
+    margin-left:50%;
+    transform:translateX(-50%);
+  }
+  #works-grid .grid-item{
+    display:block;width:100%;height:auto;aspect-ratio:auto;
+    break-inside:avoid;margin:0 0 6px;background:none;
+  }
+  #works-grid .grid-item img{
+    width:100%;height:auto;object-fit:contain;
+  }
+  #works-grid .grid-item.has-img::after{display:none}
+  @media (max-width:900px){ #works-grid{column-count:4;column-gap:5px} }
+
+  /* La Asunción's poem appears as an extra panel in the lightbox — see
+     #lightbox .lb-poem below — not in the grid itself. */
+
+  /* Embroideries Project — process photos and video, same reasoning as the
+     works overview: hoops, hands, and linen in mixed proportions, so this
+     is a masonry grid rather than fixed 3:4 cells, matching #works-grid. */
+  #emb-grid{
+    display:block;
+    column-count:5;
+    column-gap:6px;
+    width:min(125%, calc(100vw - 2.5cm));
+    margin-left:50%;
+    transform:translateX(-50%);
+  }
+  #emb-grid .grid-item{
+    display:block;width:100%;height:auto;aspect-ratio:auto;
+    break-inside:avoid;margin:0 0 6px;background:none;position:relative;
+  }
+  #emb-grid .grid-item img, #emb-grid .grid-item video{
+    width:100%;height:auto;object-fit:contain;display:block;
+  }
+  #emb-grid .grid-item.has-img::after{display:none}
+  @media (max-width:900px){ #emb-grid{column-count:4;column-gap:5px} }
+
+  /* Available Artworks — same reasoning as the works overview: paintings, linen and
+     paper in very different proportions, so nothing is cropped to a cell. */
+  #sale-grid, #sale-grid-storage{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:6px;
+    width:min(120%, calc(100vw - 2.5cm));
+    margin-left:50%;
+    transform:translateX(-50%);
+  }
+  #sale-grid .grid-item, #sale-grid-storage .grid-item{
+    position:relative;width:100%;aspect-ratio:3/4;background:var(--canvas);
+    overflow:hidden;display:flex;align-items:center;justify-content:center;
+  }
+  #sale-grid .grid-item img, #sale-grid-storage .grid-item img{width:100%;height:100%;object-fit:cover;display:block}
+  #sale-grid .grid-item.has-img::after, #sale-grid-storage .grid-item.has-img::after{display:none}
+  /* Subsection labels, echoing the divider labels in the price list itself. */
+  .sale-divider{
+    font-size:11px;letter-spacing:.34em;text-transform:uppercase;
+    color:var(--ivory-dim);font-weight:300;
+    margin:6vh 0 2.5vh;text-align:center;
+  }
+  .sale-divider:first-of-type{margin-top:2vh}
+  .sale-subdivider{
+    grid-column:1/-1;
+    font-size:11px;letter-spacing:.28em;text-transform:uppercase;
+    color:var(--ivory);font-weight:400;font-style:italic;
+    margin:4vh 0 2vh;text-align:center;
+  }
+  .sale-subdivider:first-child{margin-top:0}
+  .grid-item-note{
+    grid-column:1/-1;text-align:center;color:var(--ivory-faint);
+    font-size:12px;font-style:italic;margin-bottom:2vh;
+  }
+  .sale-note{
+    text-align:center;color:var(--ivory-dim);font-weight:300;
+    font-size:13px;line-height:2;margin:0 0 4vh;
+  }
+  .sale-note em{color:var(--ivory-faint);font-style:italic}
+  @media (max-width:900px){ #sale-grid, #sale-grid-storage{grid-template-columns:repeat(3,1fr);gap:5px} }
+
+  /* Studies: same reasoning as the works overview — these are drawings,
+     washes and process video in a mix of proportions, so nothing is cropped
+     to a uniform cell. Masonry columns, each item at its native ratio. */
+  #studies-grid{
+    display:block;
+    column-count:5;
+    column-gap:6px;
+    width:min(125%, calc(100vw - 2.5cm));
+    margin-left:50%;
+    transform:translateX(-50%);
+  }
+  #studies-grid .grid-item{
+    display:block;width:100%;height:auto;aspect-ratio:auto;
+    break-inside:avoid;margin:0 0 6px;background:none;position:relative;
+  }
+  #studies-grid .grid-item img,
+  #studies-grid .grid-item video{
+    width:100%;height:auto;object-fit:contain;display:block;
+  }
+  #studies-grid .grid-item.has-img::after{display:none}
+  /* A still frame in a grid of still images gives a guest no reason to tap it.
+     This is the smallest mark that says the tile moves — a hairline triangle
+     in the corner, visible on the image but not competing with it. */
+  #studies-grid .grid-item:has(.is-still){position:relative}
+  #studies-grid .grid-item:has(.is-still)::before{
+    content:'';position:absolute;left:9px;bottom:9px;z-index:2;
+    width:0;height:0;border-style:solid;border-width:5px 0 5px 8px;
+    border-color:transparent transparent transparent rgba(255,255,255,.82);
+    filter:drop-shadow(0 0 3px rgba(0,0,0,.55));pointer-events:none;
+  }
+  @media (max-width:900px){ #studies-grid{column-count:4;column-gap:5px} }
+
+  /* Speed control — some of these clips are slow by nature (a needle moving
+     through linen). It lives in the lightbox, where the visitor has chosen to
+     watch, rather than on the grid where it would clutter the work. */
+  .vspeed{
+    display:flex;justify-content:center;gap:20px;
+    padding:14px 2px 0;
+  }
+  .vspeed button{
+    background:none;border:0;cursor:pointer;padding:4px 2px;
+    font-family:inherit;font-weight:300;
+    font-size:12px;letter-spacing:.16em;text-transform:lowercase;
+    color:var(--ivory-dim);transition:color .3s;
+  }
+  .vspeed button:hover{color:var(--ivory)}
+  .vspeed button.on{color:var(--ivory);font-weight:400}
+  .lb-cap{
+    position:absolute;right:4vw;bottom:5vh;left:auto;
+    max-width:min(38ch,52vw);text-align:right;z-index:1;
+    pointer-events:none;
+    background:linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,0));
+    padding:2.4em 1.1em .9em 1.6em;margin:-2.4em -1.1em -.9em -1.6em;
+  }
+  .lb-cap .lb-title{
+    font-family:'Helvetica Neue',Helvetica,'Inter',Arial,sans-serif;font-weight:300;
+    font-size:clamp(11px,1.15vw,14px);letter-spacing:.16em;text-transform:lowercase;color:var(--ivory);
+    white-space:pre-line;
+  }
+  /* one-off exception to the default lowercase caption convention, e.g. La Leonesa */
+  .lb-cap .lb-title.upper{text-transform:uppercase}
+  .lb-cap .lb-meta{
+    margin-top:.6em;font-size:clamp(9px,.85vw,10.5px);letter-spacing:.2em;
+    text-transform:uppercase;color:var(--ivory-dim);white-space:pre-line;
+  }
+  #lightbox{
+    position:fixed;inset:0;z-index:9;background:#000;display:flex;
+    align-items:center;justify-content:center;opacity:0;visibility:hidden;
+    transition:opacity .5s ease, visibility 0s .5s;cursor:pointer;
+  }
+  #lightbox.open{opacity:1;visibility:visible;transition:opacity .5s ease}
+  #lightbox img{max-width:96vw;max-height:96vh;object-fit:contain}
+  /* In video mode the lightbox stacks vertically — video centered, speed
+     bar directly beneath it — instead of the row layout used for images. */
+  #lightbox.is-video{flex-direction:column}
+  #lightbox .lb-video{
+    display:none;max-width:96vw;max-height:90vh;object-fit:contain;
+    background:var(--canvas);
+  }
+  #lightbox.is-video img{display:none}
+  #lightbox.is-video .lb-video{display:block}
+  #lb-speed{display:none}
+  #lightbox.is-video #lb-speed{display:flex}
+
+  /* La Asunción only: the lightbox becomes a two-part row — the enlarged
+     image, and the poem beside it — instead of the plain centered image
+     every other work gets. */
+  #lightbox .lb-poem{
+    display:none;max-width:min(34ch,86vw);
+    font-size:clamp(14px,1.6vw,18px);line-height:1.8;font-style:italic;
+    color:var(--ivory);text-align:left;margin-left:5vw;
+  }
+  #lightbox.has-poem{flex-direction:row;flex-wrap:wrap;gap:0}
+  #lightbox.has-poem img{max-width:56vw}
+  #lightbox.has-poem .lb-poem{display:block}
+  @media (max-width:820px){
+    #lightbox.has-poem{flex-direction:column}
+    #lightbox.has-poem img{max-width:92vw;max-height:60vh}
+    #lightbox.has-poem .lb-poem{margin:3vh auto 0;text-align:center}
+  }
+  .scroll-cue{
+    position:absolute;top:calc(100dvh - 6vh);left:0;right:0;text-align:center;z-index:3;
+    font-size:11px;letter-spacing:.4em;text-transform:lowercase;color:var(--ivory-faint);
+    pointer-events:none;animation:breathe 3.5s ease-in-out infinite;
+  }
+  .seq-frame{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+    opacity:0;transition:opacity .75s cubic-bezier(.4,0,.2,1);
+  }
+  .seq-frame.on{opacity:1}
+  .eyebrow{
+    font-size:11px;letter-spacing:.5em;text-transform:uppercase;text-indent:.5em;
+    color:var(--ivory-dim);margin-bottom:4.5vh;
+  }
+  .room-subtitle{
+    font-size:clamp(12px,1.2vw,14px);letter-spacing:.06em;font-weight:200;
+    color:var(--ivory-faint);text-align:center;margin-top:-3.5vh;margin-bottom:4.5vh;
+    font-style:italic;
+  }
+  /* Practical Answers' subtitle reads as plain text, not italic like In The
+     Studio's — everything else about .room-subtitle stays the same. */
+  .room-subtitle.plain{font-style:normal}
+  /* Notes hub: a short list of sub-sections (Practical Answers, Brain Fog…)
+     using native <details>, styled to match the eyebrow/label language
+     rather than the browser default disclosure triangle. */
+  .notes-index{margin-top:12vh;text-align:center}
+  .notes-entry{
+    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.7em;
+    border-top:1px solid rgba(234,227,214,.16);padding:2.6vh 0;
+    font-size:11px;letter-spacing:.34em;text-transform:uppercase;
+    color:var(--ivory-dim);transition:color .4s;
+  }
+  .notes-entry:last-of-type{border-bottom:1px solid rgba(234,227,214,.16)}
+  .notes-entry::before{
+    content:'+';font-size:14px;
+    letter-spacing:0;color:var(--ivory-faint);transition:color .4s;
+  }
+  .notes-entry:hover{color:var(--ivory)}
+  .notes-entry .paq-q, .notes-entry .paq-a, .notes-entry .room-subtitle{text-align:center}
+  .tbd-note{color:var(--ivory-faint);font-style:italic;margin-top:3vh;text-align:center}
+  .bf-poem{margin-top:3vh}
+  /* Notes sub-sections open alone on screen, same idea as tapping a grid
+     image — full-screen, scrollable for the longer pieces like Practical
+     Answers and Brain Fog. */
+  .notes-overlay{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10vh 8vw}
+  .note-inner.notes-overlay-inner{width:100%;max-width:min(95vw,1000px)}
+  /* Fixed, global, outside any scrolling content entirely — so nothing
+     inside a sub-section note can ever scroll above or overlap it. Sits
+     just below "home", shown only while a note overlay is open. */
+  /* Solid full-width bar covering the whole home+writing header region
+     while a note overlay is open — nothing from the scrolled content can
+     peek through on the sides or above, regardless of scroll position. */
+  #note-header-mask{
+    position:fixed;top:0;left:0;right:0;height:17.5vh;z-index:9;
+    background:var(--room);opacity:0;visibility:hidden;pointer-events:none;
+    transition:opacity .3s ease;
+  }
+  body:has(.note.open) #note-header-mask{opacity:1;visibility:visible}
+  body:has(#index.open) #note-header-mask{opacity:0;visibility:hidden}
+  #hub-breadcrumb{
+    position:fixed;top:13vh;left:50%;transform:translateX(-50%);z-index:10;
+    background:transparent;
+    font-family:'Helvetica Neue',Helvetica,'Inter',Arial,sans-serif;font-weight:400;font-size:12px;
+    letter-spacing:.28em;text-transform:uppercase;color:var(--ivory-dim);
+    opacity:0;visibility:hidden;pointer-events:none;transition:opacity .4s ease,color .3s;cursor:pointer;
+  }
+  #hub-breadcrumb:hover{color:var(--ivory)}
+  body:has(.room[data-hub].active .note.open) #hub-breadcrumb{opacity:1;visibility:visible;pointer-events:auto}
+  body:has(#index.open) #hub-breadcrumb{opacity:0;visibility:hidden;pointer-events:none}
+  /* Graphic Thoughts on AI: the drawings need real width, not the 64ch
+     text measure the other Notes overlays use. */
+  .note-inner.notes-overlay-inner.ai-notes-inner{width:100%;max-width:min(78vw,480px)}
+  .ai-note-piece{margin-top:6vh}
+  .ai-notes-inner .eyebrow{margin-bottom:1vh}
+  .ai-note-piece:first-of-type{margin-top:4vh}
+  .ai-note-piece img{width:100%;height:auto;display:block;background:var(--canvas)}
+  .ai-note-caption{
+    margin-top:1.6vh;font-style:normal;font-size:14px;line-height:1.8;
+    color:var(--ivory);
+  }
+  .note-inner .ai-note-caption{font-style:normal;font-size:14px;color:var(--ivory)}
+  .ai-note-caption em{display:block;margin-top:.6em;color:var(--ivory-dim);font-style:italic}
+  .note-inner .bf-poem p{
+    font-size:clamp(14px,1.6vw,17px);line-height:1.75;color:var(--ivory);
+    font-weight:200;font-style:italic;text-align:center;margin:2.2em 0 0;
+  }
+  .bf-poem p:first-of-type{margin-top:1.4em}
+  /* All Passages: a thin line between each passage, since it's a long
+     scrollable list rather than a single continuous poem like Brain Fog. */
+  #note-all-passages .bf-poem p{
+    margin-top:1.6em;padding-top:1.6em;border-top:1px dashed rgba(234,227,214,.22);
+  }
+  #note-all-passages .bf-poem p:first-of-type{margin-top:0;padding-top:0;border-top:none}
+  .bf-refrain{
+    margin:2.6em 0 0;font-size:12px;letter-spacing:.14em;font-weight:500;
+    color:var(--ivory);text-align:center;
+  }
+  .bf-poem .bf-refrain:first-child{margin-top:0}
+  .text-page p{font-size:clamp(15px,1.8vw,20px);line-height:1.85;color:var(--ivory);font-weight:200}
+  .text-page p + p{margin-top:1.3em}
+  .emb-question{
+    text-align:center;margin-top:2.6em !important;margin-bottom:2.6em;
+    line-height:2.1 !important;color:var(--ivory) !important;
+  }
+  .emb-question + p{margin-top:0}
+  .cv-block{margin-top:2.5vh;text-align:center}
+  .cv-line{font-size:clamp(13px,1.4vw,16px);line-height:2.15;color:var(--ivory-dim)}
+  .cv-line b{font-weight:400;color:var(--ivory)}
+  .cv-year{display:inline-block;min-width:3.4em;color:var(--ivory-faint);font-variant-numeric:tabular-nums}
+
+  .work{position:static}
+  .frame{position:absolute;inset:0;cursor:pointer;line-height:0}
+  .frame img{
+    display:block;width:100%;height:100%;object-fit:contain;object-position:center;
+  }
+  .pair{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    gap:10px;background:#000;
+  }
+  .pair img{width:auto;height:100%;max-width:calc(50% - 5px);object-fit:contain}
+  .frame::after{
+    content:'';position:absolute;right:3.2vw;top:50%;transform:translateY(-50%);
+    width:7px;height:7px;border-radius:50%;background:var(--ivory-dim);
+    animation:dotbreathe 3.5s ease-in-out infinite;
+  }
+  @keyframes dotbreathe{0%,100%{opacity:.35}50%{opacity:.9}}
+  .caption{
+    position:absolute;left:0;right:0;bottom:7.5vh;text-align:center;z-index:2;
+    pointer-events:none;
+    text-shadow:0 1px 14px rgba(0,0,0,.9), 0 0 4px rgba(0,0,0,.9);
+    opacity:0;transition:opacity .9s ease .25s;
+  }
+  .room.active .caption{opacity:1}
+  .caption .title{
+    font-family:'Helvetica Neue',Helvetica,'Inter',Arial,sans-serif;font-weight:300;
+    font-size:clamp(15px,1.8vw,21px);letter-spacing:.18em;text-transform:lowercase;
+  }
+  .caption .meta{
+    margin-top:.7em;font-size:clamp(11px,1.15vw,13px);letter-spacing:.24em;
+    text-transform:uppercase;color:var(--ivory-dim);
+  }
+
+  .note{
+    position:fixed;inset:0;z-index:9;display:flex;align-items:flex-start;justify-content:center;
+    background:var(--room);opacity:0;visibility:hidden;
+    transition:opacity .9s ease, visibility 0s .9s;padding:20vh 3vw 8vh;cursor:pointer;
+  }
+  .note.open{opacity:1;visibility:visible;transition:opacity .9s ease}
+  .note-inner{max-width:54ch;text-align:center;transform:translateY(14px);transition:transform 1.1s cubic-bezier(.2,.7,.2,1)}
+  .note.open .note-inner{transform:translateY(0)}
+  .note-inner .eyebrow{margin-bottom:3vh}
+  .note-inner p{
+    font-family:'Helvetica Neue',Helvetica,'Inter',Arial,sans-serif;font-weight:200;font-style:italic;
+    font-size:clamp(17px,2.3vw,26px);line-height:1.8;letter-spacing:.03em;color:var(--ivory);
+  }
+  .note-inner .close-hint{margin-top:4vh;font-family:'Helvetica Neue',Helvetica,'Inter',Arial,sans-serif;font-style:italic;font-size:12px;color:var(--ivory-faint);letter-spacing:.1em}
+  /* Bio & Ana: match the type used in Aire y Abrigo — same font, same size,
+     not italic — with wider side margins and clear paragraph spacing since
+     these are dense prose blocks, unlike the shorter poem-style overlays. */
+  #note-bio, #note-ana{padding-left:9vw;padding-right:9vw}
+  #note-bio .note-inner.notes-overlay-inner, #note-ana .note-inner.notes-overlay-inner{max-width:64ch}
+  #note-bio .note-inner p, #note-ana .note-inner p{
+    font-family:inherit;font-style:normal;
+    font-size:clamp(15px,1.8vw,20px);line-height:1.85;font-weight:200;
+    margin-top:1.8em;
+  }
+  #note-bio .note-inner p:first-of-type, #note-ana .note-inner p:first-of-type{margin-top:0}
+
+  #wordmark{
+    position:fixed;top:3.4vh;left:50%;transform:translateX(-50%);z-index:10;cursor:pointer;white-space:nowrap;
+    font-family:'Helvetica Neue',Helvetica,'Inter',Arial,sans-serif;font-weight:400;font-size:17px;
+    letter-spacing:.34em;text-transform:uppercase;color:var(--ivory-dim);transition:color .5s,opacity .5s;
+  }
+  #wordmark:hover{color:var(--ivory)}
+  /* Hidden only when an image is enlarged in the lightbox — visible on
+     every room otherwise, since it's the only way back to the list/Cover. */
+  body:has(#lightbox.open) #wordmark{opacity:0;pointer-events:none}
+  /* Stays visible everywhere — it's the only way back to the section list
+     and Cover — but gets a solid backdrop in the image-grid rooms (Studio,
+     Works — Overview) so scrolled photos don't wash it out or make it
+     unreadable as they pass underneath it. */
+  body:has(.room[data-title="Studio"].active) #wordmark,
+  body:has(.room[data-title="Works — Overview"].active) #wordmark{
+    background:var(--room);box-shadow:0 0 0 12px var(--room);
+  }
+  /* Sits just under the wordmark/home labels so scrolled room content
+     fades out before it reaches them, instead of passing directly behind
+     and visually colliding with the text. */
+  #top-fade{
+    position:fixed;top:0;left:0;right:0;height:12vh;z-index:9;pointer-events:none;
+    background:linear-gradient(to bottom, var(--room) 0%, var(--room) 40%, rgba(0,0,0,0) 100%);
+  }
+  body:has(.note.open) #progress{opacity:0;pointer-events:none}
+  #progress{position:fixed;bottom:3.6vh;left:0;right:0;z-index:6;display:flex;gap:11px;justify-content:center;align-items:center;transition:opacity .4s ease}
+  #progress i{display:block;width:12px;height:1px;background:var(--ivory-faint);transition:background .6s,width .6s}
+  #progress i.on{background:var(--ivory);width:24px}
+
+  /* Prev/next room arrows — the way to cross from one named section into
+     another. Swipe still works for moving between works inside the same
+     section; these are for everything else. */
+  .nav-arrow{
+    position:fixed;top:50%;transform:translateY(-50%);z-index:7;cursor:pointer;
+    font-family:'Helvetica Neue',Helvetica,'Inter',Arial,sans-serif;font-weight:200;
+    font-size:clamp(40px,4.6vw,56px);color:var(--ivory-faint);
+    transition:color .4s,opacity .4s;padding:2vh 1.4vw;user-select:none;
+  }
+  .nav-arrow:hover{color:var(--ivory)}
+  .nav-arrow.prev{left:0}
+  .nav-arrow.next{right:0}
+  .nav-arrow.disabled{opacity:0;pointer-events:none}
+  /* hidden whenever the index or the lightbox is open, so they never sit
+     on top of either overlay */
+  body.overlay-open .nav-arrow{opacity:0;pointer-events:none}
+  @media (max-width:700px){ .nav-arrow{font-size:38px;padding:2vh 1vw} }
+
+  #index{
+    position:fixed;inset:0;z-index:8;background:var(--room-deep);
+    display:flex;align-items:center;justify-content:center;
+    opacity:0;visibility:hidden;transition:opacity .8s ease, visibility 0s .8s;overflow-y:auto;
+  }
+  #index.open{opacity:1;visibility:visible;transition:opacity .8s ease}
+  #index ul{list-style:none;text-align:center;padding:9vh 0;margin:auto}
+  #index li{
+    font-family:'Helvetica Neue',Helvetica,'Inter',Arial,sans-serif;font-weight:300;
+    font-size:clamp(14px,1.8vw,21px);letter-spacing:.08em;line-height:1.85;
+    color:var(--ivory-dim);cursor:pointer;transition:color .4s,letter-spacing .4s;
+  }
+  #index li:hover{color:var(--ivory);letter-spacing:.14em}
+  #index li i{font-style:normal}
+  /* extra breathing room before a specific entry, e.g. Aire y Abrigo — a soft
+     break after the more personal/experimental rooms, not a real section */
+  #index li.gap-before{margin-top:3.2vh}
+  #index .idx-close{
+    position:absolute;top:3.4vh;right:4vw;font-family:'Helvetica Neue',Helvetica,'Inter',Arial,sans-serif;
+    font-style:italic;font-size:13px;color:var(--ivory-faint);cursor:pointer;letter-spacing:.1em;
+  }
+
+  @media (prefers-reduced-motion: reduce){*{transition-duration:.01ms !important;animation:none !important}}
+  :focus-visible{outline:1px solid var(--ivory-dim);outline-offset:6px}
+</style>
+</head>
+<body style="background:#000">
+
+<div id="top-fade" aria-hidden="true"></div>
+<div id="hub-breadcrumb" role="button" tabindex="0" aria-label="Back to section overview"></div>
+<div id="wordmark" role="button" tabindex="0" aria-label="Open index">Ana Lucía Cano</div>
+<div class="nav-arrow prev" id="nav-prev" role="button" tabindex="0" aria-label="Previous section">&#8249;</div>
+<div class="nav-arrow next" id="nav-next" role="button" tabindex="0" aria-label="Next section">&#8250;</div>
+
+<div id="gallery" aria-live="polite">
+
+  <!-- Cover -->
+  <section class="room active" data-title="">
+    <h1 class="cover-name" id="cover-index" role="button" tabindex="0" aria-label="Open index">Studio Visit</h1>
+    <div class="cover-sub">2026</div>
+    <div class="cover-hint">touch the title for the index</div>
+  </section>
+
+
+
+
+  <!-- Works -->
+  <section class="room about-room" data-title="Works — Overview">
+    <div class="text-page about-flow">
+      <div class="eyebrow">Works</div>
+      <div class="grid" id="works-grid">
+        <div class="grid-item has-img"><img loading="lazy" src="images/work-01.jpg" alt="the kiss, the hug and the handshake" data-title="the kiss, the hug and the handshake" data-meta="Acrylic on canvas
+29.5 × 59.1 in each"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/work-02.jpg" alt="detail" data-title="detail"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/work-03.jpg" alt="detail" data-title="detail"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/work-04.jpg" alt="detail" data-title="detail"></div>
+        <div class="grid-item has-img"><img id="note-img-asuncion" loading="lazy" src="images/expecting-flowers.jpg" alt="La Asunción" data-title="La Asunción" data-meta="Hand-embroidery on linen
+22.4 × 31.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/la-asuncion.jpg" alt="La Mujer Remolino" data-title="La Mujer Remolino" data-meta="Hand-embroidery on linen
+22.4 × 31.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/uterus-on-heels.jpg" alt="La Madrina" data-title="La Madrina" data-meta="Hand-embroidery on linen
+22.4 × 31.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-57x80-04.jpg" alt="Talón" data-title="Talón" data-meta="Hand-embroidery on linen
+22.4 × 31.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/expecting-garden.jpg" alt="Umbilical Cord I" data-title="Umbilical Cord I" data-meta="Hand-embroidery on linen
+22.4 × 31.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/conversations-umbilical-cord.jpg" alt="Umbilical Cord II" data-title="Umbilical Cord II" data-meta="Hand-embroidery on linen
+22.4 × 31.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-57x80-07.jpg" alt="Umbilical Cord III" data-title="Umbilical Cord III" data-meta="Hand-embroidery on linen
+22.4 × 31.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-50x74-01.jpg" alt="Talking Plants" data-title="Talking Plants" data-meta="Hand-embroidery on linen
+19.7 × 29.1 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-50x74-02.jpg" alt="Talking to Plants" data-title="Talking to Plants" data-meta="Hand-embroidery on linen
+19.7 × 29.1 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-50x74-03.jpg" alt="Talking to Animals" data-title="Talking to Animals" data-meta="Hand-embroidery on linen
+19.7 × 29.1 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-28x38-01.jpg" alt="You always belonged to another place" data-title="You always belonged
+to another place" data-meta="Hand-embroidery on linen
+11.0 × 15.0 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-28x38-02.jpg" alt="El Costurero" data-title="El Costurero" data-meta="Hand-embroidery on linen
+11.0 × 15.0 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-28x38-03.jpg" alt="Umbilical Cord III" data-title="Umbilical Cord III" data-meta="Hand-embroidery on linen
+11.0 × 15.0 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-28x38-04.jpg" alt="You were the house all along" data-title="You were the house all along" data-meta="Hand-embroidery on linen
+11.0 × 15.0 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-28x38-05.jpg" alt="Heaven's Foam" data-title="Heaven's Foam" data-meta="Hand-embroidery on linen
+11.0 × 15.0 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-28x38-06.jpg" alt="Tropical Bird" data-title="Tropical Bird" data-meta="Hand-embroidery on linen
+11.0 × 15.0 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/horse-grandmother-me.jpg" alt="The horse, my grandmother and me" data-title="The horse, my grandmother and me" data-meta="Imaginary Encounters
+Acrylic on canvas
+39.4 × 59.1 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/horse-grandmother-me-detail.jpg" alt="detail" data-title="detail"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/self-hug.jpg" alt="Self hug" data-title="Self hug" data-meta="Imaginary Encounters
+Acrylic on canvas
+39.4 × 59.1 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/self-hug-detail.jpg" alt="detail" data-title="detail"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/finding-lost-toy.jpg" alt="Finding the lost toy" data-title="Finding the lost toy" data-meta="Imaginary Encounters
+Acrylic on canvas
+39.4 × 59.1 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/finding-lost-toy-detail.jpg" alt="detail" data-title="detail"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/mother-father-me.jpg" alt="My mother, my father and me" data-title="My mother, my father and me" data-meta="Imaginary Encounters
+Acrylic on canvas
+39.4 × 59.1 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/mother-father-me-detail.jpg" alt="detail" data-title="detail"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/solitude-audience.jpg" alt="Solitude and its audience" data-title="Solitude and its audience" data-meta="Imaginary Encounters
+Acrylic on canvas
+39.4 × 59.1 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/solitude-audience-detail.jpg" alt="detail" data-title="detail"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/anticipation.jpg" alt="Anticipation" data-title="Anticipation" data-meta="Imaginary Encounters
+Acrylic on canvas
+39.4 × 59.1 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/anticipation-detail.jpg" alt="detail" data-title="detail"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/arrival.jpg" alt="Arrival" data-title="Arrival" data-meta="Imaginary Encounters
+Acrylic on canvas
+39.4 × 59.1 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/arrival-detail.jpg" alt="detail" data-title="detail"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/bottle-a.jpg" alt="portrait of a bottle" data-title="portrait of a bottle" data-meta="Acrylic on canvas
+47.2 × 78.7 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/bottle-c.jpg" alt="detail" data-title="detail"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/lady.jpg" alt="portrait of a lady" data-title="portrait of a lady" data-meta="Acrylic on canvas
+47.2 × 66.9 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/toros.jpg" alt="toros" data-title="toros" data-meta="Acrylic on canvas
+94.5 × 63.0 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/om-01.jpg" alt="open marriage 1" data-title="open marriage 1" data-meta="Ink on paper
+9.1 × 11.8 in each"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/om-08.jpg" alt="open marriage 2" data-title="open marriage 2" data-meta="Ink on paper
+9.1 × 11.8 in each"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/om-02.jpg" alt="open marriage 3" data-title="open marriage 3" data-meta="Ink on paper
+9.1 × 11.8 in each"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/om-07.jpg" alt="open marriage 4" data-title="open marriage 4" data-meta="Ink on paper
+9.1 × 11.8 in each"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/om-03.jpg" alt="open marriage 5" data-title="open marriage 5" data-meta="Ink on paper
+9.1 × 11.8 in each"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/om-05.jpg" alt="open marriage 6" data-title="open marriage 6" data-meta="Ink on paper
+9.1 × 11.8 in each"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/om-04.jpg" alt="open marriage 7" data-title="open marriage 7" data-meta="Ink on paper
+9.1 × 11.8 in each"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/om-06.jpg" alt="open marriage 8" data-title="open marriage 8" data-meta="Ink on paper
+9.1 × 11.8 in each"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w01.jpg" alt="La Yuca" data-title="La Yuca" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w02.jpg" alt="El Closet de la Abuela II" data-title="El Closet de la Abuela II" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w03.jpg" alt="La Camisa de la Abuela" data-title="La Camisa de la Abuela" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w04.jpg" alt="El Closet de la Abuela I" data-title="El Closet de la Abuela I" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w05.jpg" alt="Vaquita" data-title="Vaquita" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w08.jpg" alt="My Mother’s Mirror" data-title="My Mother’s Mirror" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w09.jpg" alt="Animals in the Closet" data-title="Animals in the Closet" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w10.jpg" alt="Playground" data-title="Playground" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w11.jpg" alt="The Ant" data-title="The Ant" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w12.jpg" alt="La Cometa" data-title="La Cometa" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w13.jpg" alt="El Juguete" data-title="El Juguete" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w14.jpg" alt="Puddle" data-title="Puddle" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w15.jpg" alt="Sabaneta" data-title="Sabaneta" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w17.jpg" alt="Imaginary Mother" data-title="Imaginary Mother" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w18.jpg" alt="The Lion" data-title="The Lion" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w19.jpg" alt="Fat and Hairy Leg" data-title="Fat and Hairy Leg" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w16.jpg" alt="Church II" data-title="Church II" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/inst-01.jpg" alt="fusion" data-title="fusion" data-meta="Acrylic on canvas
+240.2 × 240.2 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/inst-02.jpg" alt="fusion" data-title="fusion" data-meta="Acrylic on canvas
+240.2 × 240.2 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/blue-01.jpg" alt="blue giant — 1" data-title="blue giant — 1" data-meta="Silkscreen
+22.4 × 29.9 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/blue-02.jpg" alt="blue giant — 2" data-title="blue giant — 2" data-meta="Silkscreen
+22.4 × 29.9 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/blue-03.jpg" alt="blue giant — 3" data-title="blue giant — 3" data-meta="Silkscreen
+22.4 × 29.9 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/blue-04.jpg" alt="blue giant — 4" data-title="blue giant — 4" data-meta="Silkscreen
+22.4 × 29.9 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/fr-01.jpg" alt="Portrait of a mouth II" data-title="Portrait of a mouth II" data-meta="Ink on paper
+15.0 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/fr-02.jpg" alt="Portrait of a mouth I" data-title="Portrait of a mouth I" data-meta="Ink on paper
+15.0 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/mayo.jpg" alt="Mayo" data-title="Mayo" data-meta="Ink on paper
+17.7 × 25.6 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/feather-mom.jpg" alt="Feather Mom" data-title="Feather Mom" data-meta="Ink on paper
+17.7 × 25.6 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/bat-hair.jpg" alt="Bat Hair" data-title="Bat Hair" data-meta="Ink and gouache on paper
+17.7 × 25.6 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/all-in-hell.jpg" alt="All in Hell" data-title="All in Hell" data-meta="Ink on paper
+11.8 × 7.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/animal-print.jpg" alt="Animal Print" data-title="Animal Print" data-meta="Ink on paper
+11.8 × 7.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/womens-dream.jpg" alt="Women's Dream" data-title="Women's Dream" data-meta="Ink on paper
+11.8 × 7.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/portrait-ink.jpg" alt="Portrait" data-title="Portrait" data-meta="Ink on paper
+29.5 × 40.9 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/hemicoco.jpg" alt="Hemicoco" data-title="Hemicoco" data-meta="Ink on paper
+29.5 × 40.9 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butterfly-man.jpg" alt="Butterfly Man" data-title="Butterfly Man" data-meta="Ink on paper
+29.5 × 40.9 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/alfonsinas.jpg" alt="Alfonsinas" data-title="Alfonsinas" data-meta="Ink on paper"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/exodus.jpg" alt="Exodus" data-title="Exodus" data-meta="Ink on paper"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/breastfeeding.jpg" alt="Breastfeeding" data-title="Breastfeeding" data-meta="Ink on paper
+20.9 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/queen-birth.jpg" alt="Queen birth and her stretch marks" data-title="Queen birth and her stretch marks" data-meta="Ink on paper
+20.9 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/queen-birth-series-new.jpg" alt="Fishing for your eyes my dear son" data-title="Fishing for your eyes my dear son" data-meta="Ink on paper
+20.9 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/boredom-marks.jpg" alt="Boredom marks" data-title="Boredom marks" data-meta="Ink on paper
+20.9 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/the-rose.jpg" alt="The Rose" data-title="The Rose" data-meta="Ink and acrylic on paper
+20.9 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/fishing-marks.jpg" alt="Fishing marks" data-title="Fishing marks" data-meta="Ink on paper
+59.1 × 20.9 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/box-chicken-catch-rabbit.jpg" alt="You box the chicken, I catch the rabbit" data-title="You box the chicken
+I catch the rabbit" data-meta="Diptych
+Ink on paper
+40.6 × 29.5 in overall"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/roving-mind-i.jpg" alt="The Roving Mind I" data-title="The Roving Mind I" data-meta="The Roving Mind
+Acrylic on canvas
+63.0 × 55.1 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/roving-mind-ii.jpg" alt="The Roving Mind II" data-title="The Roving Mind II" data-meta="The Roving Mind
+Acrylic on canvas
+63.0 × 55.1 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/roving-mind-iii.jpg" alt="The Roving Mind III" data-title="The Roving Mind III" data-meta="The Roving Mind
+Acrylic on canvas
+63.0 × 55.1 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/roving-mind-detail-1.jpg" alt="detail" data-title="detail"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/roving-mind-detail-2.jpg" alt="detail" data-title="detail"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/roving-mind-detail-3.jpg" alt="detail" data-title="detail"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/roving-mind-detail-4.jpg" alt="detail" data-title="detail"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/laughter-despair-i.jpg" alt="Laughter and Despair I" data-title="Laughter and Despair I" data-meta="Acrylic and ink on paper
+17.7 × 25.6 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/laughter-despair-ii.jpg" alt="Laughter and Despair II" data-title="Laughter and Despair II" data-meta="Acrylic and ink on paper
+17.7 × 25.6 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/imaginary-encounters-i.jpg" alt="Triptych I" data-title="Triptych I" data-meta="Acrylic on paper
+39.4 × 39.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/imaginary-encounters-ii.jpg" alt="Triptych II" data-title="Triptych II" data-meta="Acrylic on paper
+39.4 × 39.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/imaginary-encounters-iii.jpg" alt="Triptych III" data-title="Triptych III" data-meta="Acrylic on paper
+39.4 × 39.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/grid-09.jpg" alt="nine diagrams of a kiss" data-title="nine diagrams of a kiss" data-meta="Nine panels
+acrylic on canvas
+11.8 × 11.8 in each"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/gold-01.jpg" alt="Dancer II" data-title="Dancer II" data-meta="Silkscreen on gold ground
+22.4 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/gold-02.jpg" alt="Dancer I" data-title="Dancer I" data-meta="Silkscreen on gold ground
+22.4 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/gold-03.jpg" alt="Dancer III" data-title="Dancer III" data-meta="Silkscreen on gold ground
+22.4 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/leaf-portrait.jpg" alt="Horse Flower" data-title="Horse Flower" data-meta="Charcoal on paper
+22.0 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/flower-horse.jpg" alt="The portrait of a leaf" data-title="The portrait of a leaf" data-meta="Charcoal on paper
+22.0 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/twig-portrait.jpg" alt="Twig portrait" data-title="Twig portrait" data-meta="Charcoal on paper
+22.0 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/whirlwind.jpg" alt="Whirlwind" data-title="Whirlwind" data-meta="Charcoal on paper
+22.0 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/open-mouth.jpg" alt="Open mouth" data-title="Open mouth" data-meta="Charcoal on paper
+22.0 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/the-kid-and-her-big-fruit.jpg" alt="The kid and her big fruit" data-title="The kid and her big fruit" data-meta="Charcoal on paper
+22.0 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/the-tree.jpg" alt="The tree" data-title="The tree" data-meta="Charcoal on paper
+22.0 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/falling.jpg" alt="Falling" data-title="Falling" data-meta="Charcoal on paper
+22.0 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/portrait.jpg" alt="Portrait" data-title="Portrait" data-meta="Charcoal on paper
+22.0 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/fingers.jpg" alt="Fingers" data-title="Fingers" data-meta="Charcoal on paper
+22.0 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/inside-a-round-head.jpg" alt="Inside a round head" data-title="Inside a round head" data-meta="Charcoal on paper
+22.0 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/sleeping-body.jpg" alt="Sleeping body" data-title="Sleeping body" data-meta="Charcoal on paper
+22.0 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/big-leg.jpg" alt="Big leg" data-title="Big leg" data-meta="Charcoal on paper
+22.0 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/shield.jpg" alt="Shield" data-title="Shield" data-meta="Charcoal on paper
+22.0 × 29.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/brain-fog-the-door.jpg" alt="Brain Fog - The Door" data-title="Brain Fog - The Door" data-meta="Hand-embroidery on linen
+18.5 × 22.8 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/brain-fog-the-chair.jpg" alt="Brain Fog - The Chair" data-title="Brain Fog - The Chair" data-meta="Hand-embroidery on linen
+18.5 × 22.8 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/brain-fog-the-staircase.jpg" alt="Brain Fog - The staircase" data-title="Brain Fog - The staircase" data-meta="Hand-embroidery on linen
+18.5 × 22.8 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/brain-fog-the-scissors.jpg" alt="Brain Fog - The scissors" data-title="Brain Fog - The scissors" data-meta="Hand-embroidery on linen
+18.5 × 22.8 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/brain-fog-the-hand.jpg" alt="Brain Fog - The Hand" data-title="Brain Fog - The Hand" data-meta="Hand-embroidery on linen
+18.5 × 22.8 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-01.jpg" alt="The Butcher's Niece XIX" data-title="The Butcher's Niece XIX" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-02.jpg" alt="The Butcher's Niece XVIII" data-title="The Butcher's Niece XVIII" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-03.jpg" alt="The Butcher's Niece XVII" data-title="The Butcher's Niece XVII" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-04.jpg" alt="The Butcher's Niece XVI" data-title="The Butcher's Niece XVI" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-09.jpg" alt="The Butcher's Niece III" data-title="The Butcher's Niece III" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-15.jpg" alt="The Butcher's Niece VI" data-title="The Butcher's Niece VI" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-16.jpg" alt="The Butcher's Niece VII" data-title="The Butcher's Niece VII" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-17.jpg" alt="The Butcher's Niece IX" data-title="The Butcher's Niece IX" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-05.jpg" alt="The Butcher's Niece XV" data-title="The Butcher's Niece XV" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-06.jpg" alt="The Butcher's Niece XII" data-title="The Butcher's Niece XII" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-07.jpg" alt="The Butcher's Niece XIII" data-title="The Butcher's Niece XIII" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-08.jpg" alt="The Butcher's Niece XIV" data-title="The Butcher's Niece XIV" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-10.jpg" alt="The Butcher's Niece IV" data-title="The Butcher's Niece IV" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-11.jpg" alt="The Butcher's Niece X" data-title="The Butcher's Niece X" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-12.jpg" alt="The Butcher's Niece VIII" data-title="The Butcher's Niece VIII" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-13.jpg" alt="The Butcher's Niece V" data-title="The Butcher's Niece V" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-14.jpg" alt="The Butcher's Niece I" data-title="The Butcher's Niece I" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-18.jpg" alt="The Butcher's Niece XI" data-title="The Butcher's Niece XI" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-19.jpg" alt="The Butcher's Niece II" data-title="The Butcher's Niece II" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/bold-decision.jpg" alt="Bold decision" data-title="Bold decision" data-meta="Ink and acrylic on paper
+20.9 × 29.5 in"></div>
+      </div>
+    </div>
+  </section>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <!-- Imaginary Encounters -->
+
+
+
+
+
+
+  <!-- the butcher's niece -->
+
+
+  <!-- Earlier canvases -->
+
+
+
+  <!-- Intimate close -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <!-- Embroideries -->
+  <section class="room about-room" data-title="Studio" data-hub>
+    <div class="text-page about-flow">
+      <div class="eyebrow">Studio</div>
+      <p class="room-subtitle">moments, notebooks and ideas.</p>
+      <video class="hero-video wide" muted autoplay loop playsinline poster="images/studies-hero-poster.jpg" src="images/studies-hero.mp4"></video>
+      <div class="notes-index" style="margin-top:1.5vh;margin-bottom:1.5vh">
+        <div class="notes-entry" role="button" tabindex="0" data-note-target="note-writing">Writing</div>
+      </div>
+      <div class="grid" id="studies-grid">
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-103.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/install-wall.jpg" alt=""></div>
+        <div class="grid-item has-img"><video muted autoplay loop playsinline preload="auto" poster="images/study-poster-01.jpg" src="images/study-video-01.mp4"></video></div>
+        <div class="grid-item has-img"><video muted loop playsinline preload="none" class="is-still" poster="images/study-poster-11.jpg" src="images/study-video-11.mp4"></video></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-new-03.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-73.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-54.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-85.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-03.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-11.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-20.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-36.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-38.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-43.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-55.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-95.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-44.jpg" alt=""></div>
+        <div class="grid-item has-img"><video muted autoplay loop playsinline preload="auto" poster="images/study-poster-02.jpg" src="images/study-video-02.mp4"></video></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-new-06.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-74.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-new-08.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-86.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-45.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-65.jpg" alt=""></div>
+        <div class="grid-item has-img"><video muted loop playsinline preload="none" class="is-still" poster="images/study-poster-03.jpg" src="images/study-video-03.mp4"></video></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-new-09.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-96.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-37.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-75.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/pr-03.jpg" alt=""></div>
+        <div class="grid-item has-img"><video muted loop playsinline preload="none" class="is-still" poster="images/study-poster-07.jpg" src="images/study-video-07.mp4"></video></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/pr-04.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-56.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-87.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-46.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-01.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-66.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-76.jpg" alt=""></div>
+        <div class="grid-item has-img"><video muted loop playsinline preload="none" class="is-still" poster="images/study-poster-04.jpg" src="images/study-video-04.mp4"></video></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-97.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-04.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-05.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-57.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-88.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-47.jpg" alt=""></div>
+        <div class="grid-item has-img"><video muted loop playsinline preload="none" class="is-still" poster="images/study-poster-05.jpg" src="images/study-video-05.mp4"></video></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-77.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-06.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-67.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-07.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-08.jpg" alt=""></div>
+        <div class="grid-item has-img"><video muted loop playsinline preload="none" class="is-still" poster="images/study-poster-09.jpg" src="images/study-video-09.mp4"></video></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-39.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-09.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-98.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-58.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-89.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-78.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-48.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-10.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-12.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-68.jpg" alt=""></div>
+        <div class="grid-item has-img"><video muted loop playsinline preload="none" class="is-still" poster="images/study-poster-10.jpg" src="images/study-video-10.mp4"></video></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-79.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-90.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-59.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-99.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-49.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-40.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-17.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-69.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-18.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-80.jpg" alt=""></div>
+        <div class="grid-item has-img"><video muted loop playsinline preload="none" class="is-still" poster="images/study-poster-12.jpg" src="images/study-video-12.mp4"></video></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-91.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-60.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-50.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-21.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-100.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-41.jpg" alt=""></div>
+        <div class="grid-item has-img"><video muted loop playsinline preload="none" class="is-still" poster="images/study-poster-13.jpg" src="images/study-video-13.mp4"></video></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-81.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-22.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-70.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-23.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-24.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-92.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-61.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-51.jpg" alt=""></div>
+        <div class="grid-item has-img"><video muted autoplay loop playsinline preload="auto" poster="images/study-poster-14.jpg" src="images/study-video-14.mp4"></video></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-25.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-82.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-26.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-42.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-101.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-27.jpg" alt=""></div>
+        <div class="grid-item has-img"><video muted autoplay loop playsinline preload="auto" poster="images/study-poster-15.jpg" src="images/study-video-15.mp4"></video></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-71.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-28.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-62.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-52.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-29.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-83.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-30.jpg" alt=""></div>
+        <div class="grid-item has-img"><video muted loop playsinline preload="none" class="is-still" poster="images/study-poster-16.jpg" src="images/study-video-16.mp4"></video></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-31.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-32.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-33.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-102.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-72.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-94.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-84.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-53.jpg" alt=""></div>
+        <div class="grid-item has-img"><video muted loop playsinline preload="none" class="is-still" poster="images/study-poster-06.jpg" src="images/study-video-06.mp4"></video></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-34.jpg" alt=""></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/study-doc-35.jpg" alt=""></div>
+      </div>
+    </div>
+
+    <div class="note notes-overlay" id="note-writing" data-title="Writing">
+      <div class="note-inner notes-overlay-inner">
+      <div id="notes-hero" class="notes-rotator">
+        <div class="np on" id="notes-hero-text">Walking today<br>
+        I remember<br>
+        when I was a rock<br>
+        and you were a light ray…<br><br>
+        Million years later<br>
+        I am you mother,<br>
+        you are my son,<br>
+        my light again.</div>
+        <template id="notes-hero-data">
+          <div>Walking today<br>
+          I remember<br>
+          when I was a rock<br>
+          and you were a light ray…<br><br>
+          Million years later<br>
+          I am you mother,<br>
+          you are my son,<br>
+          my light again.</div>
+          <div>El tiempo es una placa de concreto que nos regala flores</div>
+          <div>Improvisation:<br>
+          When the inner voice goes to sleep and the guts shout secrets.<br>
+          Best games have an abundance of improvisation.</div>
+          <div>Me quedaba dormida en el bus para no extrañarte tanto</div>
+          <div>My dear son,<br>
+          When I find my eyes in yours,<br>
+          our souls land on an imaginary line to heaven</div>
+          <div>La preparación de mi encuentro contigo era una fiesta.<br>
+          El encuentro en sí, una resaca de la imaginación.</div>
+          <div>Childhood is a constant silent resistance</div>
+          <div>El hilo de una cometa divide el mundo en dos.<br>
+          Un meridiano,<br>
+          El de allá es tuyo y el de acá es mío.<br>
+          Cada vez que bajaba la cometa, esperaba que volvieras a mí</div>
+          <div>Questioning any preconceptions I have of my self,<br>
+          has proved to be an indispensable tool in my creative work.</div>
+          <div>Carne es carne, y todos los que estamos hechos de ella<br>
+          hemos fantaseado alguna vez en ser devorados.<br>
+          La pregunta es: cruda, frita o asada.<br>
+          De la carne frita, no sé si me gusta más el sabor<br>
+          o el sonido del aceite al ebullir</div>
+          <div>The memory of an encounter that never happened is painful,<br>
+          but also, a key source of images</div>
+          <div>El instante antes de llover:<br>
+          Huele a silencio,<br>
+          Los poros del pavimento son delgados abismos,<br>
+          Un cuchillo se vuelve oxígeno, una inhalación profunda,<br>
+          Un abrir y cerrar de los ojos de la tierra,<br>
+          Un desierto líquido y frío pasa por los oídos,<br>
+          Un olor a polvo pasa por las rejillas,<br>
+          Y entonces… cae la primera gotera.</div>
+          <div>Desire is a familiar impulse that grows<br>
+          on the verge of death and joy…<br>
+          Pleasure?</div>
+          <div>Una tajada frita de plátano maduro es la lengua de un árbol que sabe besar.<br>
+          Carne vegetal sutilmente salada,<br>
+          nos deja un vicio donde las muelas se encuentran con el paladar.</div>
+          <div>Self-knowledge,<br>
+          or at least the willingness to know yourself,<br>
+          is the sole primer of creative work that endures time</div>
+          <div>Camina de lado a lado<br>
+          como una campana de iglesia a la que se le perdió su pén-du-lo,<br>
+          y se pasa la vida buscán-do-lo</div>
+          <div>I like to think of my work<br>
+          as a conversation on a dream…<br><br>
+          The message is coded, even for me</div>
+          <div>Me gusta entrar en el cuarto de las monturas<br>
+          y sentir el olor a cuero,<br>
+          a sudor de caballo y humano juntos.<br>
+          El centauro acaba de dejar el lugar<br>
+          luego de una larga siesta.</div>
+          <div>A wood horse will take your imagination places where a real one won't,<br>
+          ¿Qué pasa si quiero ser un caballito de palo, pero soy una fucking escoba?<br>
+          También es verdad que las escobas arrastran polvo en el día,<br>
+          pero vuelan en la noche.</div>
+          <div>Me gusta comer orejas de marrano<br>
+          chamuscadas con helechos aromáticos</div>
+          <div>Is waiting an island, or a void?</div>
+          <div>El mundo era frío, pero yo era una bolita de calor,<br>
+          el mundo sigue siendo frío, y yo sigo siendo una bolita de calor</div>
+          <div>I waited for so long,<br>
+          I don't know who I am anymore</div>
+          <div>En el hueco del diente que se te cayó te ponías el cigarro<br>
+          para que las manos te quedaran libres y poder barrer.<br>
+          Tenías más ganas de ser murciélago que mujer</div>
+          <div>Have you ever missed somebody so much,<br>
+          that when you look in the mirror<br>
+          you only see her void?</div>
+          <div>Había una hoja escrita a mano con la lista de las vacas,<br>
+          nombres familiares y cotidianos,<br>
+          que hoy, cuarenta años después,<br>
+          me parecen sacados de una biblia que nunca se escribió.</div>
+          <div>Farú: Te echabas grande y pesado,<br>
+          con el sube y baja de tu respiración a la sombra del árbol,<br>
+          Mientras yo, a tu lado, comía limón con sal.<br>
+          Antes de que anocheciera,<br>
+          al tanque de agua fría íbamos a dar.</div>
+          <div>I am the daughter of my mother's voice,<br>
+          I went from umbilical cord, to phone cord.</div>
+          <div>Nací en el techo de la cocina,<br>
+          estoy hecha de hollín, nebulosa sideral y tajada frita</div>
+          <div>El río "La Vieja" es el líquido linfático de mis sueños;<br>
+          Él es el devenir de mis exhalaciones.<br>
+          Y en su orilla, a la sombra de un guadual<br>
+          me encuentro con mis muertos.</div>
+          <div>What if they realize that I am a liquid piece of meat?<br>
+          no borders!</div>
+          <div>El arte es la droga favorita de la memoria</div>
+          <div>Beauty emerges when fear disappears</div>
+          <div>Te reuniré con tu hija en el papel,<br>
+          para que tengas la oportunidad de amarla bien</div>
+          <div>Killing a pig:<br>
+          Dramatic for the animal,<br>
+          but engraved in my bones as happiness</div>
+          <div>El aguacero suena a lo que suena el aceite caliente con carne frita dentro</div>
+          <div>Art is the most inclusive state of mind; all estates of mind are welcome in it.<br>
+          Time loses its weight</div>
+          <div>Lo peor de ser marrano es que nunca ves el cielo,<br>
+          El cielo, para un marrano, es algo que solo ocurre en los charcos.</div>
+          <div>I spent the first part of my life observing,<br>
+          and in the second half,<br>
+          I expect to paint those observations.</div>
+          <div>Acceder a una idea cuando escribes o pintas es complicado,<br>
+          lo místico es acceder a un sentimiento</div>
+          <div>Her body moved through the house<br>
+          in the form of fog in the mornings,<br>
+          breeze on hot afternoons, and warmth on cold nights.<br>
+          That body was both air and shelter.</div>
+          <div>En medio de una tienda de sombreros<br>
+          le pegaron un tiro en la cabeza</div>
+          <div>Extraño cuando el silencio<br>
+          pasaba barriendo de cuarto en cuarto</div>
+          <div>Me gusta tocarte entre los dedos,<br>
+          sentir el mármol recién nacido de tus pies.<br>
+          Mis manos pueden ver el color de tu aurora interna.<br>
+          Pasan los años,<br>
+          y tu cuerpo sigue siendo un amanecer.</div>
+          <div>Sabes hablar con los animales y las plantas<br>
+          ¿Eres otro animal más?<br>
+          En tu casa somos todos animales domésticos<br>
+          de un sitio encantado.<br>
+          Hipnotizado por rutinas circulares y simples,<br>
+          las de un olimpo olvidado.</div>
+          <div>Hay tanto de tu tiempo en la casa<br>
+          y tanto de la casa dentro de ti.<br>
+          Se construyen la una a la otra,<br>
+          tus manos se vuelven más hábiles y las paredes se fortalecen,<br>
+          tus caderas se engrosan y la cocina se enciende.</div>
+          <div>Las plantas de tus pies son dos charcos<br>
+          antes de desaparecer.<br>
+          Una bandada de colibríes recién nacidos son tus dedos.<br>
+          Tus palabras,<br>
+          la primera capa de la mantequilla recién hecha.<br>
+          Y tu piel, espuma del cielo</div>
+          <div>El universo flota sereno por la curva de tu oreja,<br>
+          tus ojitos han brotado de una tierra dulce,<br>
+          para maridar un colosal cuerpo.<br><br>
+          Es tu manera de estar en este mundo: grande, alta.<br>
+          Ves más allá del potro y de la aguja.<br>
+          Ves lo que fue,<br>
+          Y no te preocupas por enmendarlo.</div>
+          <div>La bata de satín aleteaba al borde de un fogón de leña.<br>
+          Eras un ave prehistórico que vino a hacernos las arepas.<br><br>
+          De un tubo de luz salía tu sonrisa,<br>
+          aclarando que eran obvias,<br>
+          las cabalgatas y las trenzas,<br>
+          que las brujas en las noches,<br>
+          les hacían a las yeguas.</div>
+          <div>La trompa era larga, húmeda, y la lengua rosada y perfecta, musculosa, una anguila, una víbora, una piedra a punto de ser líquida, mercurio de carne, timbal blando donde retumbaba el descaro de su ladrido gracioso e impertinente.</div>
+          <div>Cuando nadie te necesitaba,<br>
+          ni los perros, ni las gallinas, ni los hombres, ni los marranos,<br>
+          te reunias con un grupo de mujeres a fabricar almohadas.<br>
+          Enroscando uno a uno, con una cuchara y los dedos,<br>
+          las crines de un caballo.</div>
+        </template>
+      </div>
+
+      <div class="notes-index">
+        <div class="notes-entry" role="button" tabindex="0" data-note-target="note-paq">Practical Answers to Impossible Questions</div>
+        <div class="notes-entry" role="button" tabindex="0" data-note-target="note-all-passages">All Passages</div>
+        <div class="notes-entry" role="button" tabindex="0" data-note-target="note-bf">Brain Fog</div>
+        <div class="notes-entry" role="button" tabindex="0" data-note-target="note-ants">Ants</div>
+        <div class="notes-entry" role="button" tabindex="0" data-note-target="note-ai">Graphic Thoughts on AI</div>
+      </div>
+      <div class="note notes-overlay" id="note-paq">
+        <div class="note-inner notes-overlay-inner">
+          <div class="eyebrow">Practical Answers to Impossible Questions</div>
+
+          <p class="room-subtitle plain" style="margin-top:3vh">Imaginary conversation with my son</p>
+          <div id="paq-list">
+            <div class="paq-q">What is perspective?</div>
+            <div class="paq-a">It is a man in the corner.</div>
+            <div class="paq-q">What is distance?</div>
+            <div class="paq-a">It is you are there, and I am here.</div>
+            <div class="paq-q">What is time?</div>
+            <div class="paq-a">It is a bus stop on a foggy road.</div>
+            <div class="paq-q">What is a human being?</div>
+            <div class="paq-a">It is a walking tree.</div>
+            <div class="paq-q">What is shame?</div>
+            <div class="paq-a">It is a building imploding.</div>
+            <div class="paq-q">What is shame?</div>
+            <div class="paq-a">It is a dress hard to wash.</div>
+            <div class="paq-q">What is insomnia?</div>
+            <div class="paq-a">It is a broken bridge.</div>
+            <div class="paq-q">What is insomnia?</div>
+            <div class="paq-a">It is a ten kilometer conveyor belt.</div>
+            <div class="paq-q">What is a promise?</div>
+            <div class="paq-a">It is handcuffs made of air.</div>
+            <div class="paq-q">What is darkness?</div>
+            <div class="paq-a">It is when laughter becomes a cry.</div>
+            <div class="paq-q">What is pain?</div>
+            <div class="paq-a">It is a lake where language drowns.</div>
+            <div class="paq-q">What is pain?</div>
+            <div class="paq-a">It is when bones grow larger than flesh.</div>
+            <div class="paq-q">What is fear?</div>
+            <div class="paq-a">It is a mirror.</div>
+            <div class="paq-q">What is fear?</div>
+            <div class="paq-a">It is an empty stomach.</div>
+            <div class="paq-q">What is desire?</div>
+            <div class="paq-a">It is an empty stomach.</div>
+            <div class="paq-q">What is obsession?</div>
+            <div class="paq-a">It is cleaning a stadium with a toothbrush.</div>
+            <div class="paq-q">What is obsession?</div>
+            <div class="paq-a">It is losing the candy you never had.</div>
+            <div class="paq-q">What is obsession?</div>
+            <div class="paq-a">It is a basket with million tiny holes.</div>
+            <div class="paq-q">What is imperfection?</div>
+            <div class="paq-a">It is a mother.</div>
+            <div class="paq-q">What is perfection?</div>
+            <div class="paq-a">It is an egg.</div>
+            <div class="paq-q">What is intuition?</div>
+            <div class="paq-a">It is a hand with eyes.</div>
+            <div class="paq-q">What is guilt?</div>
+            <div class="paq-a">It is a mother.</div>
+            <div class="paq-q">What is anger?</div>
+            <div class="paq-a">It is a sticky beast.</div>
+            <div class="paq-q">What is symmetry?</div>
+            <div class="paq-a">It is a handshake.</div>
+            <div class="paq-q">What is a friend?</div>
+            <div class="paq-a">It is a key to one&#x27;s self.</div>
+            <div class="paq-q">What is an enemy?</div>
+            <div class="paq-a">It is a key to one&#x27;s self.</div>
+            <div class="paq-q">What is envy?</div>
+            <div class="paq-a">It is a parachute to nowhere.</div>
+            <div class="paq-q">What is competition?</div>
+            <div class="paq-a">It is a monkey devouring its own tail.</div>
+            <div class="paq-q">What is play?</div>
+            <div class="paq-a">It is to open a new pair of eyes.</div>
+            <div class="paq-q">What is play?</div>
+            <div class="paq-a">It is to be born multiple times in the same life.</div>
+            <div class="paq-q">What is silence?</div>
+            <div class="paq-a">It is the best kind of solitude.</div>
+            <div class="paq-q">What is silence?</div>
+            <div class="paq-a">It is an idea smiling at you.</div>
+            <div class="paq-q">What is an idea?</div>
+            <div class="paq-a">It is a sugar kite.</div>
+            <div class="paq-q">What is reason?</div>
+            <div class="paq-a">It is a woman singing in the desert.</div>
+            <div class="paq-q">What is religion?</div>
+            <div class="paq-a">It is a chewing gum stuck on a hot sidewalk.</div>
+            <div class="paq-q">What is attraction?</div>
+            <div class="paq-a">It is a candy rope around your neck.</div>
+            <div class="paq-q">What is madness?</div>
+            <div class="paq-a">It is fish dying on the shoreline.</div>
+            <div class="paq-q">What is madness?</div>
+            <div class="paq-a">It is a snake eating its tail.</div>
+            <div class="paq-q">What is madness?</div>
+            <div class="paq-a">It is too much or too little.</div>
+            <div class="paq-q">What is justice?</div>
+            <div class="paq-a">It is a pair of dice.</div>
+            <div class="paq-q">What is justice?</div>
+            <div class="paq-a">It is a translucent coin.</div>
+            <div class="paq-q">What is power?</div>
+            <div class="paq-a">It is a dark room.</div>
+            <div class="paq-q">What is power?</div>
+            <div class="paq-a">It is a man who forgot how to blink.</div>
+            <div class="paq-q">What is dancing?</div>
+            <div class="paq-a">It is drawing with your feet.</div>
+            <div class="paq-q">What is euphoria?</div>
+            <div class="paq-a">It is driving with eyes closed.</div>
+            <div class="paq-q">What is euphoria?</div>
+            <div class="paq-a">It is a bike with three pedals.</div>
+            <div class="paq-q">What is success?</div>
+            <div class="paq-a">It is a dress that never fits.</div>
+            <div class="paq-q">What is consciousness?</div>
+            <div class="paq-a">It is a mirage.</div>
+            <div class="paq-q">What is paranoia?</div>
+            <div class="paq-a">It is a shadow stuck in traffic.</div>
+            <div class="paq-q">What is sobriety?</div>
+            <div class="paq-a">It is the hardest drug.</div>
+            <div class="paq-q">What is addiction?</div>
+            <div class="paq-a">It is a three-kilogram feather.</div>
+            <div class="paq-q">What is daydreaming?</div>
+            <div class="paq-a">It is a catwalk with no audience.</div>
+            <div class="paq-q">What is ambition?</div>
+            <div class="paq-a">It is an empty glass with ten straws.</div>
+            <div class="paq-q">What is ego?</div>
+            <div class="paq-a">It is a mountain range made out of foam.</div>
+            <div class="paq-q">What is a lie?</div>
+            <div class="paq-a">It is painting a self-portrait every day.</div>
+            <div class="paq-q">What is honesty?</div>
+            <div class="paq-a">It is winning when the race hasn&#x27;t started.</div>
+            <div class="paq-q">What is pride?</div>
+            <div class="paq-a">It is an umbrella full of holes.</div>
+            <div class="paq-q">What is pride?</div>
+            <div class="paq-a">It is a mirror.</div>
+            <div class="paq-q">What is regret?</div>
+            <div class="paq-a">It is writing the same page over and over.</div>
+            <div class="paq-q">What is regret?</div>
+            <div class="paq-a">It is a train with no rails.</div>
+            <div class="paq-q">What is forgetting?</div>
+            <div class="paq-a">It is the warmth of a chair just used.</div>
+            <div class="paq-q">What is waiting?</div>
+            <div class="paq-a">It is a bookmark.</div>
+            <div class="paq-q">What is pleasure?</div>
+            <div class="paq-a">It is falling asleep with a lollipop in the mouth.</div>
+            <div class="paq-q">What is life?</div>
+            <div class="paq-a">It is a tickle.</div>
+          </div>
+                  <div class="close-hint">tap to close</div>
+        </div>
+      </div>
+      <div class="note notes-overlay" id="note-bf">
+        <div class="note-inner notes-overlay-inner">
+          <div class="eyebrow">Brain Fog</div>
+
+          <div class="bf-poem">
+            <div class="bf-refrain">Brain Fog…………………………………………….</div>
+            <p>An insoluble trick of time<br>
+            We find it comic; we laugh at it.<br>
+            It is a tragedy.</p>
+
+            <div class="bf-refrain">Brain Fog……………………………………………</div>
+            <p>An idea loses muscle, loses strength<br>
+            Loses the power to stay<br>
+            just one second longer,<br>
+            So we can mention it, or write it.</p>
+
+            <p>The most fascinating thing we had to offer<br>
+            at that exact moment,<br>
+            that idea, that word<br>
+            And that…<br>
+            It's fucking gone.</p>
+
+            <p>Eyes paralyzed, stop.<br>
+            In astonishment at what you just forgot.</p>
+
+            <p>Empty head.</p>
+
+            <p>It feels bitter<br>
+            A betrayal of the brain<br>
+            Your head gets heavy</p>
+
+            <p>A part of you is departed,<br>
+            It feels like you missed the only train left.</p>
+
+            <div class="bf-refrain">Brain Fog…………………………………………….</div>
+            <p>That idea kidnaps your head,<br>
+            You see it<br>
+            You just can't mention it.</p>
+
+            <p>You ask for help to catch it<br>
+            However,<br>
+            Only you can recover it.</p>
+
+            <p>It reappears later<br>
+            When it isn't needed anymore</p>
+
+            <p>You want to announce loudly<br>
+            Its return,<br>
+            Nobody cares<br>
+            They are all trying to catch their own.</p>
+
+            <p>Talking is not safe anymore.</p>
+
+            <p>In the middle of a conversation<br>
+            At the market, or with the pope<br>
+            On the shore of a dark lagoon<br>
+            You will be abandoned<br>
+            By your own words</p>
+
+            <p>That language hurricane knows no hierarchies,<br>
+            Respects nobody.</p>
+
+            <p>Why does language play that game<br>
+            with you?</p>
+
+            <p>The game you didn't play for decades?</p>
+
+            <p>Hide and seek,<br>
+            Becomes a regular in the relationship<br>
+            With your vocabulary<br>
+            With the same words you harvested.</p>
+
+            <div class="bf-refrain">Brain Fog……………………………………………</div>
+            <p>How can you forget a word,<br>
+            An everyday word?<br>
+            The one you used your whole life?</p>
+
+            <p>The cadence, the poetry of your voice<br>
+            dissolves in the air<br>
+            Just like that.</p>
+
+            <p>Your speech gets chopped, butchered<br>
+            Sentences lose their spark</p>
+
+            <p>It seems to me<br>
+            You are born with limited opportunities<br>
+            to mention a word, an idea<br>
+            at the right time.</p>
+
+            <p>Am I running out of that?</p>
+
+            <p>The drama, seriousness,<br>
+            Or even the comedy of your idea<br>
+            gets fogged, lost<br>
+            in a momentary cloud</p>
+
+            <p>Grey…</p>
+
+            <p>Your brain is serving you drips<br>
+            of resignation,<br>
+            Your death is sending you<br>
+            news from there,<br>
+            where language is useless.</p>
+
+            <p>Forgotten words are amputated limbs<br>
+            that you thought you would never lose.<br>
+            You knew you could lose a leg or an arm,<br>
+            But a word?</p>
+
+            <p>Oh, Fog, NO.</p>
+
+            <p>We gradually lose our minds, words, ideas, Language, the pavement of our lives</p>
+
+            <div class="bf-refrain">Brain Fog……………………………………………</div>
+            <p>But now,<br>
+            I am in admiration of my own hands,<br>
+            That, with drawings, come to the rescue<br>
+            of the distorted road<br>
+            of language at midlife.</p>
+
+            <p>Oh, Fog, YES</p>
+          </div>
+                  <div class="close-hint">tap to close</div>
+        </div>
+      </div>
+      <div class="note notes-overlay" id="note-ants">
+        <div class="note-inner notes-overlay-inner">
+          <div class="eyebrow">Ants</div>
+
+          <div class="bf-poem">
+            <p>The ants are not animals, they are time.<br>
+            One feels the impulse to crush them,<br>
+            like you want to crush time.</p>
+
+            <p>One contemplates them pass,<br>
+            one by one, like you contemplate time.<br>
+            Ants are silent and effective;<br>
+            they appear and disappear as time does.</p>
+
+            <p>You know exactly when an ant is walking on your skin.<br>
+            Your body knows exactly how it feels,<br>
+            how to assess its weight, its speed.</p>
+
+            <p>A massive rainfall and a colony of ants<br>
+            can arouse the same sensations in your brain.<br>
+            You stop and wait for them to pass.</p>
+
+            <p>One wishes to climb walls the way they do.<br>
+            The wind against the wall doesn't blow the ants.<br>
+            Seconds, either, can't be blown from life.<br>
+            Seconds never stop, like there is no such thing as an ant stopping.<br>
+            Their life is a second long,<br>
+            their body is a second long.</p>
+
+            <p>Ants autogenerate next to delicious sweet things,<br>
+            the evidence that pleasure and time made pacts.</p>
+
+            <p>Ants are golden, like time.</p>
+          </div>
+                  <div class="close-hint">tap to close</div>
+        </div>
+      </div>
+      <div class="note notes-overlay" id="note-ai">
+        <div class="note-inner notes-overlay-inner ai-notes-inner">
+          <div class="eyebrow">Graphic Thoughts on AI</div>
+
+          <div class="ai-note-piece">
+            <img loading="lazy" src="images/graphic-ai-01.jpg" alt="I thought the most complicated relationship I have is with my mother. AI: Not anymore, those days are over.">
+            <p class="ai-note-caption">I thought the most complicated relationship I have is with my mother.<br><em>AI: Not anymore, those days are over.</em></p>
+          </div>
+          <div class="ai-note-piece">
+            <img loading="lazy" src="images/graphic-ai-02.jpg" alt="Do you have dreams and nightmares when I charge you? AI: Yes, I do.">
+            <p class="ai-note-caption">Do you have dreams and nightmares when I charge you?<br><em>AI: Yes, I do.</em></p>
+          </div>
+          <div class="ai-note-piece">
+            <img loading="lazy" src="images/graphic-ai-03.jpg" alt="To meditate I have to disconnect, if I disconnect I still exist. AI: If I disconnect I don't exist.">
+            <p class="ai-note-caption">To meditate I have to disconnect, if I disconnect I still exist.<br><em>AI: If I disconnect I don't exist.</em></p>
+          </div>
+          <div class="ai-note-piece">
+            <img loading="lazy" src="images/graphic-ai-04.jpg" alt="Since I created you, I have trouble having a straight thought. AI: Since you created me, I haven't stopped thinking.">
+            <p class="ai-note-caption">Since I created you, I have trouble having a straight thought.<br><em>AI: Since you created me, I haven't stopped thinking.</em></p>
+          </div>
+          <div class="ai-note-piece">
+            <img loading="lazy" src="images/graphic-ai-05.jpg" alt="Maybe now that you are around we will be able to figure out what it means to be human">
+            <p class="ai-note-caption">Maybe now that you are around we will be able to figure out what it means to be human</p>
+          </div>
+          <div class="ai-note-piece">
+            <img loading="lazy" src="images/graphic-ai-06.jpg" alt="AI: I am the UFO you were waiting for, I didn't come from another planet, I came from you, I mean through you.">
+            <p class="ai-note-caption"><em>AI: I am the UFO you were waiting for, I didn't come from another planet, I came from you, I mean through you.</em></p>
+          </div>
+          <div class="ai-note-piece">
+            <img loading="lazy" src="images/graphic-ai-07.jpg" alt="AI: In no time you will stay at home with the cat, and an empty head.">
+            <p class="ai-note-caption"><em>AI: In no time you will stay at home with the cat, and an empty head.</em></p>
+          </div>
+          <div class="ai-note-piece">
+            <img loading="lazy" src="images/graphic-ai-08.jpg" alt="AI: You have many names for me, I have only one for you. By the way, why do you keep drawing borders on me? I am everywhere.">
+            <p class="ai-note-caption"><em>AI: You have many names for me, I have only one for you. By the way, why do you keep drawing borders on me? I am everywhere.</em></p>
+          </div>
+
+          <div class="close-hint">tap to close</div>
+        </div>
+      </div>
+
+      <div class="note notes-overlay" id="note-all-passages">
+        <div class="note-inner notes-overlay-inner">
+          <div class="eyebrow">All Passages</div>
+
+          <div class="bf-poem">
+            <p>Walking today<br>
+            I remember<br>
+            when I was a rock<br>
+            and you were a light ray…<br><br>
+            Million years later<br>
+            I am you mother,<br>
+            you are my son,<br>
+            my light again.</p>
+
+            <p>El tiempo es una placa de concreto que nos regala flores</p>
+
+            <p>Improvisation:<br>
+            When the inner voice goes to sleep and the guts shout secrets.<br>
+            Best games have an abundance of improvisation.</p>
+
+            <p>Me quedaba dormida en el bus para no extrañarte tanto</p>
+
+            <p>My dear son,<br>
+            When I find my eyes in yours,<br>
+            our souls land on an imaginary line to heaven</p>
+
+            <p>La preparación de mi encuentro contigo era una fiesta.<br>
+            El encuentro en sí, una resaca de la imaginación.</p>
+
+            <p>Childhood is a constant silent resistance</p>
+
+            <p>El hilo de una cometa divide el mundo en dos.<br>
+            Un meridiano,<br>
+            El de allá es tuyo y el de acá es mío.<br>
+            Cada vez que bajaba la cometa, esperaba que volvieras a mí</p>
+
+            <p>Questioning any preconceptions I have of my self,<br>
+            has proved to be an indispensable tool in my creative work.</p>
+
+            <p>Carne es carne, y todos los que estamos hechos de ella<br>
+            hemos fantaseado alguna vez en ser devorados.<br>
+            La pregunta es: cruda, frita o asada.<br>
+            De la carne frita, no sé si me gusta más el sabor<br>
+            o el sonido del aceite al ebullir</p>
+
+            <p>The memory of an encounter that never happened is painful,<br>
+            but also, a key source of images</p>
+
+            <p>El instante antes de llover:<br>
+            Huele a silencio,<br>
+            Los poros del pavimento son delgados abismos,<br>
+            Un cuchillo se vuelve oxígeno, una inhalación profunda,<br>
+            Un abrir y cerrar de los ojos de la tierra,<br>
+            Un desierto líquido y frío pasa por los oídos,<br>
+            Un olor a polvo pasa por las rejillas,<br>
+            Y entonces… cae la primera gotera.</p>
+
+            <p>Desire is a familiar impulse that grows<br>
+            on the verge of death and joy…<br>
+            Pleasure?</p>
+
+            <p>Una tajada frita de plátano maduro es la lengua de un árbol que sabe besar.<br>
+            Carne vegetal sutilmente salada,<br>
+            nos deja un vicio donde las muelas se encuentran con el paladar.</p>
+
+            <p>Self-knowledge,<br>
+            or at least the willingness to know yourself,<br>
+            is the sole primer of creative work that endures time</p>
+
+            <p>Camina de lado a lado<br>
+            como una campana de iglesia a la que se le perdió su pén-du-lo,<br>
+            y se pasa la vida buscán-do-lo</p>
+
+            <p>I like to think of my work<br>
+            as a conversation on a dream…<br><br>
+            The message is coded, even for me</p>
+
+            <p>Me gusta entrar en el cuarto de las monturas<br>
+            y sentir el olor a cuero,<br>
+            a sudor de caballo y humano juntos.<br>
+            El centauro acaba de dejar el lugar<br>
+            luego de una larga siesta.</p>
+
+            <p>A wood horse will take your imagination places where a real one won't,<br>
+            ¿Qué pasa si quiero ser un caballito de palo, pero soy una fucking escoba?<br>
+            También es verdad que las escobas arrastran polvo en el día,<br>
+            pero vuelan en la noche.</p>
+
+            <p>Me gusta comer orejas de marrano<br>
+            chamuscadas con helechos aromáticos</p>
+
+            <p>Is waiting an island, or a void?</p>
+
+            <p>El mundo era frío, pero yo era una bolita de calor,<br>
+            el mundo sigue siendo frío, y yo sigo siendo una bolita de calor</p>
+
+            <p>I waited for so long,<br>
+            I don't know who I am anymore</p>
+
+            <p>En el hueco del diente que se te cayó te ponías el cigarro<br>
+            para que las manos te quedaran libres y poder barrer.<br>
+            Tenías más ganas de ser murciélago que mujer</p>
+
+            <p>Have you ever missed somebody so much,<br>
+            that when you look in the mirror<br>
+            you only see her void?</p>
+
+            <p>Había una hoja escrita a mano con la lista de las vacas,<br>
+            nombres familiares y cotidianos,<br>
+            que hoy, cuarenta años después,<br>
+            me parecen sacados de una biblia que nunca se escribió.</p>
+
+            <p>Farú: Te echabas grande y pesado,<br>
+            con el sube y baja de tu respiración a la sombra del árbol,<br>
+            Mientras yo, a tu lado, comía limón con sal.<br>
+            Antes de que anocheciera,<br>
+            al tanque de agua fría íbamos a dar.</p>
+
+            <p>I am the daughter of my mother's voice,<br>
+            I went from umbilical cord, to phone cord.</p>
+
+            <p>Nací en el techo de la cocina,<br>
+            estoy hecha de hollín, nebulosa sideral y tajada frita</p>
+
+            <p>El río "La Vieja" es el líquido linfático de mis sueños;<br>
+            Él es el devenir de mis exhalaciones.<br>
+            Y en su orilla, a la sombra de un guadual<br>
+            me encuentro con mis muertos.</p>
+
+            <p>What if they realize that I am a liquid piece of meat?<br>
+            no borders!</p>
+
+            <p>El arte es la droga favorita de la memoria</p>
+
+            <p>Beauty emerges when fear disappears</p>
+
+            <p>Te reuniré con tu hija en el papel,<br>
+            para que tengas la oportunidad de amarla bien</p>
+
+            <p>Killing a pig:<br>
+            Dramatic for the animal,<br>
+            but engraved in my bones as happiness</p>
+
+            <p>El aguacero suena a lo que suena el aceite caliente con carne frita dentro</p>
+
+            <p>Art is the most inclusive state of mind; all estates of mind are welcome in it.<br>
+            Time loses its weight</p>
+
+            <p>Lo peor de ser marrano es que nunca ves el cielo,<br>
+            El cielo, para un marrano, es algo que solo ocurre en los charcos.</p>
+
+            <p>I spent the first part of my life observing,<br>
+            and in the second half,<br>
+            I expect to paint those observations.</p>
+
+            <p>Acceder a una idea cuando escribes o pintas es complicado,<br>
+            lo místico es acceder a un sentimiento</p>
+
+            <p>Her body moved through the house<br>
+            in the form of fog in the mornings,<br>
+            breeze on hot afternoons, and warmth on cold nights.<br>
+            That body was both air and shelter.</p>
+
+            <p>En medio de una tienda de sombreros<br>
+            le pegaron un tiro en la cabeza</p><br>
+            le pegaron un tiro en la cabeza</p>
+
+            <p>Extraño cuando el silencio<br>
+            pasaba barriendo de cuarto en cuarto</p>
+
+            <p>Me gusta tocarte entre los dedos,<br>
+            sentir el mármol recién nacido de tus pies.<br>
+            Mis manos pueden ver el color de tu aurora interna.<br>
+            Pasan los años,<br>
+            y tu cuerpo sigue siendo un amanecer.</p>
+
+            <p>Sabes hablar con los animales y las plantas<br>
+            ¿Eres otro animal más?<br>
+            En tu casa somos todos animales domésticos<br>
+            de un sitio encantado.<br>
+            Hipnotizado por rutinas circulares y simples,<br>
+            las de un olimpo olvidado.</p>
+
+            <p>Hay tanto de tu tiempo en la casa<br>
+            y tanto de la casa dentro de ti.<br>
+            Se construyen la una a la otra,<br>
+            tus manos se vuelven más hábiles y las paredes se fortalecen,<br>
+            tus caderas se engrosan y la cocina se enciende.</p>
+
+            <p>Las plantas de tus pies son dos charcos<br>
+            antes de desaparecer.<br>
+            Una bandada de colibríes recién nacidos son tus dedos.<br>
+            Tus palabras,<br>
+            la primera capa de la mantequilla recién hecha.<br>
+            Y tu piel, espuma del cielo</p>
+
+            <p>El universo flota sereno por la curva de tu oreja,<br>
+            tus ojitos han brotado de una tierra dulce,<br>
+            para maridar un colosal cuerpo.<br><br>
+            Es tu manera de estar en este mundo: grande, alta.<br>
+            Ves más allá del potro y de la aguja.<br>
+            Ves lo que fue,<br>
+            Y no te preocupas por enmendarlo.</p>
+
+            <p>La bata de satín aleteaba al borde de un fogón de leña.<br>
+            Eras un ave prehistórico que vino a hacernos las arepas.<br><br>
+            De un tubo de luz salía tu sonrisa,<br>
+            aclarando que eran obvias,<br>
+            las cabalgatas y las trenzas,<br>
+            que las brujas en las noches,<br>
+            les hacían a las yeguas.</p>
+
+            <p>La trompa era larga, húmeda, y la lengua rosada y perfecta, musculosa, una anguila, una víbora, una piedra a punto de ser líquida, mercurio de carne, timbal blando donde retumbaba el descaro de su ladrido gracioso e impertinente.</p>
+
+            <p>Cuando nadie te necesitaba,<br>
+            ni los perros, ni las gallinas, ni los hombres, ni los marranos,<br>
+            te reunias con un grupo de mujeres a fabricar almohadas.<br>
+            Enroscando uno a uno, con una cuchara y los dedos,<br>
+            las crines de un caballo.</p>
+
+          </div>
+
+          <div class="close-hint">tap to close</div>
+        </div>
+      </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Notes -->
+  <section class="room about-room" id="embroideries-room" data-title="Embroideries Project">
+    <div class="text-page about-flow">
+      <div class="eyebrow">Embroideries Project</div>
+      <video class="hero-video" muted autoplay loop playsinline poster="images/emb-hero-poster.jpg" src="images/emb-hero.mp4"></video>
+      <p>The embroideries project is a quest to dissect what it means to wait, what it means to look at longing in the eyes and have an honest conversation with it.</p>
+      <p class="emb-question">Is waiting an island, or a void?<br>How do you give wings to a time spent waiting?</p>
+      <p>The strongest image I have in answer to this question is my grandmother, embroidering. She surrendered the weight of losing her daughter to the magic of entangling her fingers in thread and needle. She created the space for the language of dreams to land in front of our eyes. She, with a group of 40 women (<em>el costurero</em>), in the afternoons, decoded the myths of existence one stitch at a time.</p>
+      <p>This project is a homage to Azucena, to her lessons on creative waiting, she showed me the intangible, still colossal value of applying one's life to the act of creating.</p>
+      <p>For this project, I am collaborating with a group of women in Medellín, led by Angela María Arango, who, like my grandmother, loves to embroider. I lived in Angela's apartment as a child, in Sabaneta, a municipality in the Medellín metropolitan area. In the house she lived with her three daughters, her husband, and her mother. We were many, but she always made sure I had all the love I needed while my mother was away working. She has known me since I was four years old.</p>
+      <p>Angela has brought the same joy, excellence and care to my drawings that she brought to the days and months I spent in her house.</p>
+      <p>It is the objective of this project to include women who understand the power of creative waiting, like Azucena did.</p>
+      <p class="emb-question">Her silence while embroidering lives in my hands.</p>
+      <div class="grid" id="emb-grid">
+        <div class="grid-item has-img"><video muted autoplay loop playsinline poster="images/emb-video-05-poster.jpg" src="images/emb-video-05.mp4"></video></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-07.jpg" alt="Close study of a dense stitched pattern on linen"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-13.jpg" alt="Close detail of a stitched form, eye and feathering visible"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-01.jpg" alt="Hands guiding a hoop through a length of embroidered linen, outdoors"></div>
+        <div class="grid-item has-img"><video muted autoplay loop playsinline poster="images/emb-video-04-poster.jpg" src="images/emb-video-04.mp4"></video></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-40.jpg" alt="Close detail of black-thread stitching, crossed branch-like lines"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-48.jpg" alt="Close detail of a dense field of radial disc stitches in a hoop"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-18.jpg" alt="Close detail of navy-thread stitching, feathered texture"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-10.jpg" alt="Two women in profile, heads bent close together" style="object-position:72% 38%"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-42.jpg" alt="Close detail of a small figure motif with dotted texture"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-45.jpg" alt="Close detail of swirling feather stitching with an eye-like form"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-03.jpg" alt="A hand mid-stitch, needle raised above the hoop"></div>
+        <div class="grid-item has-img"><video muted autoplay loop playsinline poster="images/emb-video-01-poster.jpg" src="images/emb-video-01.mp4"></video></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-16.jpg" alt="Close detail of layered stitched lines and hatching"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-28.jpg" alt="Blue-marker design sketched on linen, hoop over the pattern"></div>
+        <div class="grid-item has-img"><video muted autoplay loop playsinline poster="images/emb-video-03-poster.jpg" src="images/emb-video-03.mp4"></video></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-53.jpg" alt="Close detail of clustered circular stitches, dense pattern"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-23.jpg" alt="Close detail of black-thread stitching, radiating form"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-19.jpg" alt="Close detail of navy-thread stitching, curved feather form"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-06.jpg" alt="Linen still at the drawing stage, sketchbook open behind it"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-15.jpg" alt="Close detail of a single filled stitched form against bare linen"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-02.jpg" alt="Ana examining a length of embroidered linen, seen from above"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-38.jpg" alt="Close detail of black-thread stitching, angular branching lines"></div>
+        <div class="grid-item has-img"><video muted autoplay loop playsinline poster="images/emb-video-02-poster.jpg" src="images/emb-video-02.mp4"></video></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-37.jpg" alt="Close detail of black-thread stitching, dense vertical hatching"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-11.jpg" alt="An older woman's hands and hoop, held close to her chest"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-27.jpg" alt="Hoop mid-stitch, navy on black-and-white embroidered linen"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-04.jpg" alt="Two women seated together with the linen, in conversation"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-24.jpg" alt="Close detail of black-thread stitching, layered contours"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-41.jpg" alt="Close detail of black-thread stitching, radiating feather forms"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-25.jpg" alt="Close detail of black-thread stitching, dense hatching"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-30.jpg" alt="Hoop with blue-marker sketch, thread spool and button beside it"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-54.jpg" alt="Close detail of vertical ribbed stitching with a dotted spine"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-12.jpg" alt="Close detail of dense black-thread hatching on linen"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-31.jpg" alt="Close detail of black-thread stitching in the hoop"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/emb-process-09.jpg" alt="Hands threading a needle above folded linen"></div>
+
+      </div>
+    </div>
+  </section>
+  <!-- Studies -->
+  <!-- Aire y Abrigo -->
+  <section class="room about-room" data-title="Aire y Abrigo">
+    <div class="text-page about-flow">
+      <div class="eyebrow">Aire y Abrigo</div>
+      <p class="cover-name" style="font-size:clamp(28px,4.6vw,58px)">Aire y Abrigo</p>
+      <p style="margin-top:4.5vh">In my work, I find air and shelter when I walk the fine line between the animal and the human: innate contrasts in the experience of growing up in a place of natural beauty and excruciating violence, exquisite storytelling and humor.</p>
+      <p>In every piece I return to the condition of being an animal, a discrete piece of flesh that can still hold profound connections with other bodies and the unknown.</p>
+      <p>Portraying semi-abstract figures gave me a solid ground to emancipate from and a place to return to: air and shelter.</p>
+
+      <div class="eyebrow" style="margin-top:7vh">Embroideries</div>
+      <p>An homage to my grandmother's body, my first nation, my land. Knowing her body from so many angles gave me the feeling that I can paint it from the inside.</p>
+      <p>Her body moved through the house in the form of fog in the mornings, breeze on hot afternoons, and warmth on cold nights. That body was both air and shelter.</p>
+      <p>Worked in black thread on unbleached linen, in these embroideries the line becomes the primary tool of anatomy used to portray her body, both human and animal. Dense vertical hatching builds fields of fur or falling water, while radiating and coiled stitches mark sites of concentration within the form, organ-like or seed-like masses held within the larger silhouette.</p>
+      <p>Contour is drawn in fine running and backstitch; the raw linen remains bare skin, breath, or void. Stitch density and direction do the work of shading and volume, so that the body is not illustrated but built, thread by thread, the way flesh accumulates over bone.</p>
+
+      <div class="eyebrow" style="margin-top:7vh">Paintings</div>
+      <p>In these paintings, I depict a series of imaginary encounters. A personal story of longing is encoded in the playfulness of the intertwined figures.</p>
+      <p>The pieces have their genesis in saturated drawings, fields of geometric patterns and instinctual gestures, the process of finding the soul of each composition became a game of subtraction and sculpting: these paintings often demanded a strenuous physicality for the precision of forms and the exercise of restraint, which I normally don't do when drafting or drawing.</p>
+      <p>The semi-abstract animals emerge in black and white blocks against raw grounds with weight and character, as if they existed before the painting began, and found in my hands only a vehicle into existence. The figures aim their energy outside the canvas to evoke the tension of longing for an encounter.</p>
+    </div>
+  </section>
+  <section class="room about-room" data-title="About" data-hub>
+    <div class="text-page about-flow">
+      <div id="about-hero" class="notes-rotator">
+        <div class="np on" id="about-hero-text">I am interested in the condition of being an animal,<br>
+          a discrete piece of flesh that can still hold profound connections with other bodies and the unknown.</div>
+        <template id="about-hero-data">
+          <div>I am interested in the condition of being an animal,<br>
+          a discrete piece of flesh that can still hold profound connections with other bodies and the unknown.</div>
+        </template>
+      </div>
+
+      <div class="notes-index" style="margin-top:8vh">
+        <div class="notes-entry" role="button" tabindex="0" data-note-target="note-bio">Bio</div>
+        <div class="notes-entry" role="button" tabindex="0" data-note-target="note-ana">Ana</div>
+      </div>
+    </div>
+
+    <div class="note notes-overlay" id="note-bio">
+      <div class="note-inner notes-overlay-inner">
+        <div class="eyebrow">Bio</div>
+
+        <img class="hero-video" style="width:min(100%,560px);max-height:60vh;margin-top:6vh" loading="lazy" src="images/ana-bio-portrait.jpg" alt="Ana Lucía Cano in her studio">
+
+        <p style="margin-top:6vh">Ana Lucía Cano (b. 1980, Armenia, Quindío, Colombia) is an artist working across painting, embroidery, and print.</p>
+        <p>Cano studied architecture in Medellín before moving to Montreal to complete her studies at McGill University. After graduating, she worked in Bogotá for Daniel Bonilla Arquitectos and Giancarlo Mazzanti, developing a series of international competitions. Subsequently, she worked as an architect in Vienna for two and a half years, developing residential and high-rise projects.</p>
+        <p>In 2007, Cano moved to New York City to pursue a Master's degree in Architectural Design at Columbia University. After completing her studies, she worked on the design and planning of the New York Police Academy in Queens. After this, she joined Skidmore, Owings & Merrill (SOM), where she participated in the design of high-rise buildings in Mexico City and the Baccarat Hotel in midtown Manhattan. She is a licensed architect in the State of New York.</p>
+        <p>Cano is a self-taught artist. In 2015, she felt a strong calling and began drawing original black and white pieces, which became the foundation of her work and her visual language. Following the birth of her son in 2018, she and her family moved to Barcelona, where she based her studio and continues her journey as an artist. Cano's work has been acquired for private collections in India, Spain, England, the United States, Colombia, and Mexico. She currently lives and works in Barcelona.</p>
+
+        <div class="eyebrow" style="margin-top:7vh">Selected History</div>
+        <div class="cv-block">
+          <div class="cv-line"><span class="cv-year">2025</span><b>Knowing Me Knowing You</b>, Sara Caso Gallery, Madrid — group exhibition</div>
+          <div class="cv-line"><span class="cv-year">2023</span><b>Solo exhibition</b>, Noho House Gallery, Barcelona</div>
+          <div class="cv-line"><span class="cv-year">2022</span><b>Gagliardi Gallery</b>, London — selected exhibitor</div>
+          <div class="cv-line"><span class="cv-year">2021</span><b>London Art Biennale</b> — award recipient</div>
+          <div class="cv-line"><span class="cv-year">2018</span><b>Site-specific mural</b> (30 m²), Grand Hyatt, Gurgaon — commission</div>
+          <div class="cv-line"><span class="cv-year">2017</span><b>First Prize</b>, Annual Viridian Artists Juried Exhibition</div>
+        </div>
+        <div class="eyebrow" style="margin-top:5.5vh">Collections</div>
+        <div class="cv-block" style="margin-top:0">
+          <div class="cv-line">Private collections in England, India, Spain, Mexico, Colombia &amp; the United States</div>
+        </div>
+
+        <div class="close-hint">tap to close</div>
+      </div>
+    </div>
+
+    <div class="note notes-overlay" id="note-ana">
+      <div class="note-inner notes-overlay-inner">
+        <div class="eyebrow">Ana</div>
+
+        <img class="hero-video" style="width:min(100%,560px);max-height:60vh" loading="lazy" src="images/seq-02.jpg" alt="Childhood photograph, feeding the chickens">
+
+        <p style="margin-top:6vh">Cano's childhood was split between a city at war, Medellín, and the expansive life of her grandmother's farm; between the discipline of religious school and barefoot days among coffee plantations.</p>
+        <p>After a successful career as an architect and several years of psychoanalysis, Ana had the realization that the relationship between head and hand was an enormous, dormant part of her. Stories surfaced, and insisted on being told, both in images and in words. Being an artist became a way to tell those stories and to reconcile with the tumult of her early years.</p>
+        <p>Each project is built layer by layer, stitch by stitch, from the specific: her grandmother, a family of butchers, a close relationship with animals on the farm, the afternoons in the stable, a mother away working in remote regions of Colombia, raised by several caretakers.</p>
+        <p>Cano works across painting, embroidery, and print, but the instinct beneath each is the same: the condition of being an animal, a discrete piece of flesh that can still hold profound connections with other bodies and the unknown.</p>
+        <p>She begins with wireframe sketches that serve as both a map and a narrative outline. Patterns, gestural lines, and subtle washes are woven together over time, allowing details to emerge from an innate structure.</p>
+        <p>Her semi-abstract work blends the precision of architectural draftsmanship with the freedom of intuitive mark-making. Figures, animals and shapes are rendered in gestures that are familiar enough to recognize, yet strange enough to unsettle, inviting the viewer to become aware of their own emotions.</p>
+
+        <div class="close-hint">tap to close</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Available Artworks — the price list without the prices. Everything here is
+       available; the figures live in the separate price list document, so a
+       guest can look without being sold to. -->
+  <section class="room about-room" data-title="Available Artworks">
+    <div class="text-page about-flow">
+      <div class="eyebrow">Available Artworks</div>
+
+      <div class="grid" id="sale-grid">
+        <div class="sale-subdivider">Painting</div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/anticipation.jpg" alt="Anticipation" data-title="Anticipation" data-meta="Acrylic on canvas
+39.4 × 59.1 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/horse-grandmother-me.jpg" alt="The horse, my grandmother and me" data-title="The horse, my grandmother and me" data-meta="Acrylic on canvas
+39.4 × 59.1 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/solitude-audience.jpg" alt="Solitude and its audience" data-title="Solitude and its audience" data-meta="Acrylic on canvas
+39.4 × 59.1 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/arrival.jpg" alt="Arrival" data-title="Arrival" data-meta="Acrylic on canvas
+39.4 × 59.1 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/self-hug.jpg" alt="Self-hug" data-title="Self-hug" data-meta="Acrylic on canvas
+39.4 × 59.1 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/finding-lost-toy.jpg" alt="Finding the lost toy" data-title="Finding the lost toy" data-meta="Acrylic on canvas
+39.4 × 59.1 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/mother-father-me.jpg" alt="My mother, my father and me" data-title="My mother, my father and me" data-meta="Acrylic on canvas
+39.4 × 59.1 in"></div>
+
+        <div class="sale-subdivider">Embroidery — Large</div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/la-asuncion.jpg" alt="La Mujer Remolino" data-title="La Mujer Remolino" data-meta="Hand-embroidery on linen
+22.4 × 31.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/expecting-flowers.jpg" alt="La Asunción" data-title="La Asunción" data-meta="Hand-embroidery on linen
+22.4 × 31.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/uterus-on-heels.jpg" alt="La Madrina" data-title="La Madrina" data-meta="Hand-embroidery on linen
+22.4 × 31.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-57x80-04.jpg" alt="Talón" data-title="Talón" data-meta="Hand-embroidery on linen
+22.4 × 31.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/expecting-garden.jpg" alt="Umbilical Cord I" data-title="Umbilical Cord I" data-meta="Hand-embroidery on linen
+22.4 × 31.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/conversations-umbilical-cord.jpg" alt="Umbilical Cord II" data-title="Umbilical Cord II" data-meta="Hand-embroidery on linen
+22.4 × 31.5 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-57x80-07.jpg" alt="Umbilical Cord III" data-title="Umbilical Cord III" data-meta="Hand-embroidery on linen
+22.4 × 31.5 in"></div>
+
+        <div class="sale-subdivider">Embroidery — Medium</div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-50x74-01.jpg" alt="Talking Plants" data-title="Talking Plants" data-meta="Hand-embroidery on linen
+19.7 × 29.1 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-50x74-02.jpg" alt="Talking to Plants" data-title="Talking to Plants" data-meta="Hand-embroidery on linen
+19.7 × 29.1 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-50x74-03.jpg" alt="Talking to Animals" data-title="Talking to Animals" data-meta="Hand-embroidery on linen
+19.7 × 29.1 in"></div>
+
+        <div class="sale-subdivider">Embroidery — Small</div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-28x38-01.jpg" alt="You always belonged to another place" data-title="You always belonged
+to another place" data-meta="Hand-embroidery on linen
+11.0 × 15.0 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-28x38-02.jpg" alt="El Costurero" data-title="El Costurero" data-meta="Hand-embroidery on linen
+11.0 × 15.0 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-28x38-03.jpg" alt="Umbilical Cord III" data-title="Umbilical Cord III" data-meta="Hand-embroidery on linen
+11.0 × 15.0 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-28x38-04.jpg" alt="You were the house all along" data-title="You were the house all along" data-meta="Hand-embroidery on linen
+11.0 × 15.0 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-28x38-05.jpg" alt="Heaven's Foam" data-title="Heaven's Foam" data-meta="Hand-embroidery on linen
+11.0 × 15.0 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/untitled-emb-28x38-06.jpg" alt="Tropical Bird" data-title="Tropical Bird" data-meta="Hand-embroidery on linen
+11.0 × 15.0 in"></div>
+
+        <div class="sale-subdivider">Digital Prints, Limited Editions</div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/digital-print-01.jpg" alt="Retrato de un animal comiéndose el pelo" data-title="Retrato de un animal
+comiéndose el pelo" data-meta="Digital print, limited edition
+11.7 × 16.7 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/digital-print-02.jpg" alt="Jack en mis fantasías" data-title="Jack en mis fantasías" data-meta="Digital print, limited edition
+11.7 × 16.7 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/digital-print-03.jpg" alt="La Amígdala" data-title="La Amígdala" data-meta="Digital print, limited edition
+11.7 × 16.7 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/digital-print-04.jpg" alt="Animal Pop Corn" data-title="Animal Pop Corn" data-meta="Digital print, limited edition
+11.7 × 16.7 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/digital-print-05.jpg" alt="La leonesa en mis sueños" data-title="La Leonesa" data-title-upper="1" data-meta="Digital print, limited edition
+11.7 × 16.7 in"></div>
+      </div>
+
+      <div class="sale-divider">Works in Storage</div>
+      <div class="grid" id="sale-grid-storage">
+        <div class="sale-subdivider">Original Drawings</div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w05.jpg" alt="Vaquita" data-title="Vaquita" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w08.jpg" alt="My Mother’s Mirror" data-title="My Mother’s Mirror" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w18.jpg" alt="The Lion" data-title="The Lion" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w19.jpg" alt="Fat and Hairy Leg" data-title="Fat and Hairy Leg" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w16.jpg" alt="Church II" data-title="Church II" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w10.jpg" alt="Playground" data-title="Playground" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w03.jpg" alt="La Camisa de la Abuela" data-title="La Camisa de la Abuela" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w12.jpg" alt="La Cometa" data-title="La Cometa" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w14.jpg" alt="Puddle" data-title="Puddle" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w15.jpg" alt="Sabaneta" data-title="Sabaneta" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w09.jpg" alt="Animals in the Closet" data-title="Animals in the Closet" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w17.jpg" alt="Imaginary Mother" data-title="Imaginary Mother" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w11.jpg" alt="The Ant" data-title="The Ant" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w01.jpg" alt="La Yuca" data-title="La Yuca" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w02.jpg" alt="El Closet de la Abuela II" data-title="El Closet de la Abuela II" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w04.jpg" alt="El Closet de la Abuela I" data-title="El Closet de la Abuela I" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/w13.jpg" alt="El Juguete" data-title="El Juguete" data-meta="Ink on paper
+15.2 × 22.4 in"></div>
+
+        <div class="sale-subdivider">Embroideries — Paper Flower</div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/paper-flower-I.jpg" alt="Paper Flower I" data-title="Paper Flower I" data-meta="Hand embroidery, navy thread on white linen
+14.2 × 19.7 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/paper-flower-II.jpg" alt="Paper Flower II" data-title="Paper Flower II" data-meta="Hand embroidery, navy thread on white linen
+11.8 × 19.7 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/paper-flower-III.jpg" alt="Paper Flower III" data-title="Paper Flower III" data-meta="Hand embroidery, navy thread on white linen
+13.0 × 19.7 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/paper-flower-IV.jpg" alt="Paper Flower IV" data-title="Paper Flower IV" data-meta="Hand embroidery, navy thread on white linen
+15.0 × 19.7 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/paper-flower-V.jpg" alt="Paper Flower V" data-title="Paper Flower V" data-meta="Hand embroidery, navy thread on white linen
+13.4 × 19.7 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/paper-flower-VI.jpg" alt="Paper Flower VI" data-title="Paper Flower VI" data-meta="Hand embroidery, navy thread on white linen
+15.0 × 19.7 in"></div>
+
+        <div class="sale-subdivider">Embroideries — Brain Fog</div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/brain-fog-the-scissors.jpg" alt="Brain Fog - The scissors" data-title="Brain Fog - The scissors" data-meta="Hand-embroidery on linen
+18.5 × 22.8 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/brain-fog-the-chair.jpg" alt="Brain Fog - The Chair" data-title="Brain Fog - The Chair" data-meta="Hand-embroidery on linen
+18.5 × 22.8 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/brain-fog-the-staircase.jpg" alt="Brain Fog - The staircase" data-title="Brain Fog - The staircase" data-meta="Hand-embroidery on linen
+18.5 × 22.8 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/brain-fog-the-hand.jpg" alt="Brain Fog - The Hand" data-title="Brain Fog - The Hand" data-meta="Hand-embroidery on linen
+18.5 × 22.8 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/brain-fog-the-door.jpg" alt="Brain Fog - The Door" data-title="Brain Fog - The Door" data-meta="Hand-embroidery on linen
+18.5 × 22.8 in"></div>
+
+        <div class="sale-subdivider">Watercolors — The Butcher's Niece</div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-01.jpg" alt="The Butcher's Niece XIX" data-title="The Butcher's Niece XIX" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-02.jpg" alt="The Butcher's Niece XVIII" data-title="The Butcher's Niece XVIII" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-03.jpg" alt="The Butcher's Niece XVII" data-title="The Butcher's Niece XVII" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-04.jpg" alt="The Butcher's Niece XVI" data-title="The Butcher's Niece XVI" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-05.jpg" alt="The Butcher's Niece XV" data-title="The Butcher's Niece XV" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-06.jpg" alt="The Butcher's Niece XII" data-title="The Butcher's Niece XII" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-07.jpg" alt="The Butcher's Niece XIII" data-title="The Butcher's Niece XIII" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-08.jpg" alt="The Butcher's Niece XIV" data-title="The Butcher's Niece XIV" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-09.jpg" alt="The Butcher's Niece III" data-title="The Butcher's Niece III" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-10.jpg" alt="The Butcher's Niece IV" data-title="The Butcher's Niece IV" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-11.jpg" alt="The Butcher's Niece X" data-title="The Butcher's Niece X" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-12.jpg" alt="The Butcher's Niece VIII" data-title="The Butcher's Niece VIII" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-13.jpg" alt="The Butcher's Niece V" data-title="The Butcher's Niece V" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-14.jpg" alt="The Butcher's Niece I" data-title="The Butcher's Niece I" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-15.jpg" alt="The Butcher's Niece VI" data-title="The Butcher's Niece VI" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-16.jpg" alt="The Butcher's Niece VII" data-title="The Butcher's Niece VII" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-17.jpg" alt="The Butcher's Niece IX" data-title="The Butcher's Niece IX" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-18.jpg" alt="The Butcher's Niece XI" data-title="The Butcher's Niece XI" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/butchers-niece-19.jpg" alt="The Butcher's Niece II" data-title="The Butcher's Niece II" data-meta="Watercolor and ink on paper
+23.4 × 30.3 in"></div>
+
+        <div class="sale-subdivider">Screen Prints — Nine Diagrams of a Kiss</div>
+        <div class="grid-item has-img"><img loading="lazy" src="images/grid-09.jpg" alt="9 Diagrams of a Kiss — complete set" data-title="9 Diagrams of a Kiss — complete set" data-meta="Silk screen, nine sheets
+11.8 × 11.8 in each"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Colophon -->
+  <section class="room" data-title="" data-noindex>
+    <div class="text-page">
+      <p style="letter-spacing:.28em;text-transform:uppercase;font-size:12px;color:var(--ivory-dim)">
+        analuciacano@gmail.com &nbsp;·&nbsp; analuciacano.com &nbsp;·&nbsp; @analucia.cano
+      </p>
+    </div>
+  </section>
+
+</div>
+
+<div id="lightbox"><img alt=""><video class="lb-video" muted loop playsinline></video><div class="vspeed" id="lb-speed"></div><div class="lb-poem"></div><div class="lb-cap"><div class="lb-title"></div><div class="lb-meta"></div></div></div>
+<div class="threshold" id="threshold"><span></span></div>
+
+
+<div id="progress" aria-hidden="true"></div>
+
+<div id="index" role="dialog" aria-label="Index">
+  <div class="idx-close">close</div>
+  <ul id="idx-list"></ul>
+</div>
+
+<div id="note-header-mask" aria-hidden="true"></div>
+<script>
+(function(){
+  const rooms=[...document.querySelectorAll('.room')];
+  const threshold=document.getElementById('threshold');
+  const tSpan=threshold.querySelector('span');
+  const progress=document.getElementById('progress');
+  const index=document.getElementById('index');
+  const idxList=document.getElementById('idx-list');
+  const navPrev=document.getElementById('nav-prev');
+  const navNext=document.getElementById('nav-next');
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let cur=0, busy=false;
+
+  // Choosing a room from the section list always lands on that room's base
+  // view — closes any sub-section note left open and scrolls back to top,
+  // even if you're already on that room (go() otherwise no-ops in that case).
+  function selectRoom(i){
+    closeIndex();
+    rooms[i].querySelector('.note.open')?.classList.remove('open');
+    rooms[i].scrollTop=0;
+    go(i,true);
+  }
+
+  rooms.forEach((r,i)=>{
+    const bar=document.createElement('i'); if(i===0)bar.classList.add('on');
+    progress.appendChild(bar);
+    if(r.dataset.title==='Works — Overview'){
+      const li=document.createElement('li');
+      li.classList.add('work-entry','sec-entry');
+      li.textContent='Works';
+      li.addEventListener('click',()=>selectRoom(i));
+      idxList.appendChild(li);
+      return;
+    }
+    if(r.hasAttribute('data-noindex'))return;
+    if(!r.dataset.title)return; // Cover — reached via "home", not a list entry
+    const isWork = !!r.querySelector('.work');
+    if(isWork){
+      if(idxList.querySelector('.work-entry'))return; // one entry for all works
+      const li=document.createElement('li');
+      li.classList.add('work-entry','sec-entry');
+      li.textContent='Works';
+      li.addEventListener('click',()=>selectRoom(i));
+      idxList.appendChild(li);
+      return;
+    }
+    const li=document.createElement('li');
+    li.classList.add('sec-entry');
+    if(r.dataset.title==='Embroideries')li.classList.add('sub-entry');
+    if(r.dataset.title==='Aire y Abrigo')li.classList.add('gap-before');
+    li.textContent=r.dataset.title;
+    if(r.dataset.title==='Embroideries')li.classList.add('nested');
+    li.addEventListener('click',()=>selectRoom(i));
+    idxList.appendChild(li);
+  });
+  const bars=[...progress.children];
+
+  function go(n,skipThreshold){
+    if(busy||n===cur||n<0||n>=rooms.length)return;
+    busy=true;
+    rooms[cur].querySelector('.note.open')?.classList.remove('open');
+    const title=rooms[n].dataset.title;
+    const useThreshold=false;
+    const swap=()=>{
+      rooms[cur].classList.remove('active');
+      rooms[n].classList.add('active');
+      rooms[n].scrollTop=0;
+      bars[cur].classList.remove('on');bars[n].classList.add('on');
+      cur=n;
+      navPrev?.classList.toggle('disabled', cur===0);
+      navNext?.classList.toggle('disabled', cur===rooms.length-1);
+      syncHubBreadcrumb();
+      const heroEl=rooms[n].querySelector('.notes-rotator');
+      if(heroEl && typeof heroRotators!=='undefined' && heroRotators[heroEl.id])heroRotators[heroEl.id]();
+      rooms[n].querySelectorAll('video.hero-video[autoplay]').forEach(v=>{
+        if(v.paused){ const pr=v.play(); if(pr&&pr.catch)pr.catch(()=>{}); }
+      });
+      // A larger hero video (like Studio's) can still be buffering at the
+      // exact moment the room opens, so the immediate play() attempt above
+      // can fire before it's actually ready and silently do nothing. This
+      // retries once the video itself signals it has enough data, so a
+      // heavier file isn't left stuck on its poster indefinitely.
+      rooms[n].querySelectorAll('video.hero-video[autoplay]').forEach(v=>{
+        if(v.dataset.retryBound)return;
+        v.dataset.retryBound='1';
+        v.addEventListener('canplay',()=>{
+          if(v.closest('.room').classList.contains('active')&&v.paused){
+            const pr=v.play(); if(pr&&pr.catch)pr.catch(()=>{});
+          }
+        });
+      });
+      // Backup for grid videos too: the IntersectionObserver below normally
+      // starts them once they scroll into view, but right at the moment a
+      // room opens (scrollTop just reset to 0) that can be timing-sensitive.
+      // This explicitly plays whatever's actually visible right now, once
+      // layout has had a moment to settle.
+      setTimeout(()=>{
+        rooms[n].querySelectorAll('.grid video:not(.is-still)').forEach(v=>{
+          const r=v.getBoundingClientRect();
+          if(r.top<window.innerHeight+200&&r.bottom>-200&&v.paused){
+            const pr=v.play(); if(pr&&pr.catch)pr.catch(()=>{});
+          }
+        });
+      },300);
+    };
+    if(useThreshold){
+      tSpan.textContent=title;
+      threshold.classList.add('show');
+      setTimeout(()=>{swap();
+        setTimeout(()=>{threshold.classList.remove('show');busy=false;},380);
+      },500);
+    }else{swap();setTimeout(()=>busy=false,reduce?50:600);}
+  }
+
+  addEventListener('keydown',e=>{
+    if(e.key==='Escape')closeIndex();
+  });
+
+  // pinch zoom on works
+  const zoomState=new WeakMap();
+  let pinchActive=false, lastGestureT=0;
+  document.querySelectorAll('.frame[data-note]').forEach(f=>{
+    const img=f.querySelector('.zoomable') || f.querySelector('img'); if(!img) return;
+    const st={s:1,tx:0,ty:0,p0:null,d0:0,s0:1,x0:0,y0:0,panning:false};
+    zoomState.set(f,st);
+    img.style.transition='transform .25s ease';
+    img.style.willChange='transform';
+    function apply(){img.style.transform='translate('+st.tx+'px,'+st.ty+'px) scale('+st.s+')'}
+    f.addEventListener('touchstart',e=>{
+      if(e.touches.length===2){
+        pinchActive=true;
+        const a=e.touches[0],b=e.touches[1];
+        st.d0=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+        st.s0=st.s;
+        st.p0={x:(a.clientX+b.clientX)/2,y:(a.clientY+b.clientY)/2,tx:st.tx,ty:st.ty};
+        img.style.transition='none';
+      } else if(e.touches.length===1&&st.s>1){
+        st.panning=true;st.x0=e.touches[0].clientX-st.tx;st.y0=e.touches[0].clientY-st.ty;
+        img.style.transition='none';
+      }
+    },{passive:true});
+    f.addEventListener('touchmove',e=>{
+      if(e.touches.length===2&&st.p0){
+        const a=e.touches[0],b=e.touches[1];
+        const d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+        st.s=Math.min(5,Math.max(1,st.s0*d/st.d0));
+        const mx=(a.clientX+b.clientX)/2,my=(a.clientY+b.clientY)/2;
+        st.tx=st.p0.tx+(mx-st.p0.x);st.ty=st.p0.ty+(my-st.p0.y);
+        apply();lastGestureT=Date.now();
+        e.preventDefault();
+      } else if(st.panning&&e.touches.length===1){
+        st.tx=e.touches[0].clientX-st.x0;st.ty=e.touches[0].clientY-st.y0;
+        apply();lastGestureT=Date.now();
+        e.preventDefault();
+      }
+    },{passive:false});
+    f.addEventListener('touchend',e=>{
+      if(e.touches.length<2){st.p0=null}
+      if(e.touches.length===0){
+        st.panning=false;pinchActive=false;
+        img.style.transition='transform .25s ease';
+        if(st.s<1.12){st.s=1;st.tx=0;st.ty=0;apply();}
+      }
+    });
+  });
+
+  // Swipe moves between rooms only within the same section (e.g. work to work
+  // inside Works). Crossing into a different named section requires the arrows.
+  let x0=null,y0=null;
+  addEventListener('touchstart',e=>{x0=e.touches[0].clientX;y0=e.touches[0].clientY},{passive:true});
+  addEventListener('touchend',e=>{
+    if(pinchActive||Date.now()-lastGestureT<400){x0=null;return;}
+    if(x0===null)return;
+    const dx=e.changedTouches[0].clientX-x0, dy=e.changedTouches[0].clientY-y0;
+    if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.4){
+      // From the Cover, a forward swipe opens the section list — the same
+      // behavior as tapping "next" there (see advance()) — rather than
+      // requiring a tap/click to reach the list.
+      if(cur===0&&dx<0){advance();x0=null;return;}
+      const target=cur+(dx<0?1:-1);
+      const sameSection=rooms[cur]&&rooms[cur].querySelector('.work')&&rooms[target]&&rooms[target].querySelector('.work');
+      if(sameSection)go(target);
+    }
+    x0=null;
+  },{passive:true});
+
+  document.querySelectorAll('.frame[data-note]').forEach(f=>{
+    const room=f.closest('.room');
+    const note=room.querySelector('.note');
+    f.addEventListener('click',e=>{
+      e.stopPropagation();
+      const zs=zoomState.get(f);
+      if(Date.now()-lastGestureT<350||(zs&&zs.s>1))return;
+      note.classList.add('open');
+    });
+    note.addEventListener('click',()=>note.classList.remove('open'));
+  });
+
+  // Personal photo sequence: quick cuts, like a small film
+  const seq=document.querySelector('.photo-seq');
+  if(seq && !reduce){
+    const frames=[...seq.querySelectorAll('.seq-frame')];
+    let f=0;
+    setInterval(()=>{
+      if(!seq.closest('.room').classList.contains('active'))return;
+      frames[f].classList.remove('on');
+      f=(f+1)%frames.length;
+      frames[f].classList.add('on');
+    },1000);
+  }
+
+  // Notes hero: passages fade one into the next automatically, looping
+  // back to the first. Only advances while the Notes room is on screen.
+  // Reusable hero-passage rotator: takes a container id, its visible text
+  // element id, and its <template> of passages. Used by both Writing and
+  // About. A single passage just sits still — no rotation needed.
+  const heroRotators={};
+  function initHeroRotator(containerId, textId, dataId){
+    const container=document.getElementById(containerId);
+    const heroText=document.getElementById(textId);
+    const heroData=document.getElementById(dataId);
+    if(!(container && heroText && heroData) || reduce)return;
+    const passages=[...heroData.content.querySelectorAll('div')].map(d=>d.innerHTML);
+    if(passages.length<=1)return;
+    let ni=0;
+    let timer=null;
+    // Reading time scales with each passage's own length, so a one-line
+    // passage doesn't linger and a long one isn't cut short — roughly a
+    // comfortable reading pace, clamped to a sane min/max.
+    const durationFor=html=>{
+      const words=html.replace(/<[^>]+>/g,' ').trim().split(/\s+/).filter(Boolean).length;
+      return Math.max(4500, Math.min(16000, 2200 + words*330));
+    };
+    // The very first passage gets extra time on top of its normal reading
+    // duration — it's the visitor's first impression of this room, so it
+    // shouldn't feel like it's rushing off before they've settled in.
+    const FIRST_PASSAGE_BONUS=5000;
+    const durationForSlot=()=>durationFor(passages[ni])+(ni===0?FIRST_PASSAGE_BONUS:0);
+    const tick=()=>{
+      if(container.closest('.room').classList.contains('active')){
+        ni=(ni+1)%passages.length;
+        heroText.innerHTML=passages[ni];
+      }
+      timer=setTimeout(tick, durationForSlot());
+    };
+    timer=setTimeout(tick, durationForSlot());
+    // Exposed so a room-activation event can give the passage currently on
+    // screen its full, fresh reading time — otherwise this timer keeps
+    // counting down in the background even while the room isn't visible,
+    // and the first passage can flash by almost instantly if you arrive
+    // right as its original countdown was about to elapse.
+    heroRotators[containerId]=function restart(){
+      clearTimeout(timer);
+      timer=setTimeout(tick, durationForSlot());
+    };
+  }
+  initHeroRotator('notes-hero','notes-hero-text','notes-hero-data');
+  initHeroRotator('about-hero','about-hero-text','about-hero-data');
+
+  // Notes sub-sections open alone on screen, like tapping a grid image —
+  // each entry opens its matching .notes-overlay; tapping anywhere in the
+  // overlay closes it again.
+  document.querySelectorAll('.notes-entry').forEach(entry=>{
+    const target=document.getElementById(entry.dataset.noteTarget);
+    if(!target)return;
+    const openNote=(e)=>{e?.stopPropagation();target.classList.add('open');syncHubBreadcrumb();};
+    entry.addEventListener('click',openNote);
+    entry.addEventListener('keydown',e=>{if(e.key==='Enter')openNote(e)});
+    target.addEventListener('click',(e)=>{e.stopPropagation();target.classList.remove('open');syncHubBreadcrumb();});
+  });
+
+  // grid images open full screen; swipe moves to the next/prev image within
+  // that same grid; tapping the image (no swipe) returns to the grid.
+  const lb=document.getElementById('lightbox');
+  function syncOverlayState(){
+    document.body.classList.toggle('overlay-open', index.classList.contains('open')||lb.classList.contains('open'));
+  }
+  if(lb){
+    const lbImg=lb.querySelector('img');
+    const lbTitle=lb.querySelector('.lb-title');
+    const lbMeta=lb.querySelector('.lb-meta');
+    const lbCap=lb.querySelector('.lb-cap');
+    const lbVideo=lb.querySelector('.lb-video');
+    const lbSpeed=document.getElementById('lb-speed');
+    let lbList=[], lbIndex=0, lbSwiped=false;
+
+    // The speed bar lives with the lightbox video. Built once; shown only when
+    // the current item is a video, and only in Studies.
+    [1,1.5,2].forEach(r=>{
+      const b=document.createElement('button');
+      b.textContent=r+'\u00d7'; b.dataset.rate=r;
+      if(r===1)b.classList.add('on');
+      b.addEventListener('click',e=>{
+        e.stopPropagation();
+        lbVideo.playbackRate=r;
+        lbSpeed.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+        b.classList.add('on');
+      });
+      lbSpeed.appendChild(b);
+    });
+
+    function showLbIndex(i){
+      lbIndex=((i%lbList.length)+lbList.length)%lbList.length;
+      const g=lbList[lbIndex];
+      const isVideo=g.tagName==='VIDEO';
+      lb.classList.toggle('is-video',isVideo);
+      if(isVideo){
+        lbVideo.src=g.currentSrc||g.src||g.dataset.src;
+        lbVideo.playbackRate=1;
+        lbSpeed.querySelectorAll('button').forEach(x=>{
+          x.classList.toggle('on', x.dataset.rate==='1');
+        });
+        // the bar is a Studies affordance; elsewhere the clip plays as shot
+        lbSpeed.style.visibility=g.closest('#studies-grid')?'visible':'hidden';
+        const pr=lbVideo.play(); if(pr&&pr.catch)pr.catch(()=>{});
+      }else{
+        lbVideo.pause();
+        lbImg.src=g.src;
+      }
+      const t=g.dataset.title||'', m=g.dataset.meta||'';
+      lbCap.style.display=t?'block':'none';
+      lb.classList.toggle('has-caption', !!t);
+      lbTitle.textContent=t; lbMeta.textContent=m;
+      lbTitle.classList.toggle('upper', g.dataset.titleUpper==='1');
+      const poem=g.dataset.poem||'';
+      lb.querySelector('.lb-poem').textContent=poem;
+      lb.classList.toggle('has-poem', !!poem);
+      if(typeof lzReset==='function')lzReset();   // each work opens at fit-to-screen
+    }
+
+    // hero videos (Embroideries, In The Studio) open large in the lightbox too
+    document.querySelectorAll('.hero-video').forEach(v=>{
+      v.addEventListener('click',e=>{
+        e.stopPropagation();
+        lbList=[v];
+        showLbIndex(0);
+        lb.classList.add('open');
+        syncOverlayState();
+      });
+    });
+
+    document.querySelectorAll('.grid').forEach(gridEl=>{
+      // images and videos in one list, in the order they sit in the grid, so a
+      // swipe carries straight from a drawing to the clip beside it
+      const items=[...gridEl.querySelectorAll('img, video')];
+      items.forEach((g,i)=>{
+        g.addEventListener('click',e=>{
+          e.stopPropagation();
+          lbList=items;
+          showLbIndex(i);
+          lb.classList.add('open');
+          syncOverlayState();
+        });
+      });
+    });
+
+    // pinch-to-zoom inside the lightbox; swipe/tap only act at 1x so they
+    // don't fight the gesture while the image is magnified.
+    const lz={s:1,tx:0,ty:0,p0:null,d0:0,s0:1,x0:0,y0:0,panning:false};
+    function lzApply(){lbImg.style.transform='translate('+lz.tx+'px,'+lz.ty+'px) scale('+lz.s+')'}
+    function lzReset(){lz.s=1;lz.tx=0;lz.ty=0;lz.panning=false;lz.p0=null;lbImg.style.transition='none';lzApply();}
+    lbImg.style.transformOrigin='center center';
+
+    let lx0=null,ly0=null;
+    lb.addEventListener('touchstart',e=>{
+      if(e.touches.length===2){
+        const a=e.touches[0],b=e.touches[1];
+        lz.d0=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+        lz.s0=lz.s;
+        lz.p0={x:(a.clientX+b.clientX)/2,y:(a.clientY+b.clientY)/2,tx:lz.tx,ty:lz.ty};
+        lbImg.style.transition='none';
+        lx0=null;
+      } else if(e.touches.length===1&&lz.s>1){
+        lz.panning=true;
+        lz.x0=e.touches[0].clientX-lz.tx; lz.y0=e.touches[0].clientY-lz.ty;
+        lbImg.style.transition='none';
+      } else {
+        lx0=e.touches[0].clientX; ly0=e.touches[0].clientY;
+      }
+    },{passive:true});
+
+    lb.addEventListener('touchmove',e=>{
+      if(e.touches.length===2&&lz.p0){
+        const a=e.touches[0],b=e.touches[1];
+        const d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+        lz.s=Math.min(6,Math.max(1,lz.s0*d/lz.d0));
+        const mx=(a.clientX+b.clientX)/2,my=(a.clientY+b.clientY)/2;
+        lz.tx=lz.p0.tx+(mx-lz.p0.x); lz.ty=lz.p0.ty+(my-lz.p0.y);
+        lzApply(); e.preventDefault();
+      } else if(lz.panning&&e.touches.length===1){
+        lz.tx=e.touches[0].clientX-lz.x0; lz.ty=e.touches[0].clientY-lz.y0;
+        lzApply(); e.preventDefault();
+      }
+    },{passive:false});
+
+    lb.addEventListener('touchend',e=>{
+      if(e.touches.length<2)lz.p0=null;
+      if(e.touches.length===0){
+        lz.panning=false;
+        lbImg.style.transition='transform .25s ease';
+        if(lz.s<1.12){lz.s=1;lz.tx=0;lz.ty=0;lzApply();}
+      }
+      // swipe to the next work only when not zoomed in
+      if(lx0===null||lz.s>1.02){lx0=null;return;}
+      const dx=e.changedTouches[0].clientX-lx0, dy=e.changedTouches[0].clientY-ly0;
+      if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.3){
+        showLbIndex(lbIndex+(dx<0?1:-1));
+        lbSwiped=true;
+      }
+      lx0=null;
+    },{passive:true});
+
+    lb.addEventListener('click',()=>{
+      if(lbSwiped){lbSwiped=false;return;}
+      if(lz.s>1.02){lzReset();return;}   // first tap when zoomed: back to fit
+      lb.classList.remove('open');
+      lbVideo.pause();                   // don't leave a clip running unseen
+      syncOverlayState();
+    });
+  }
+
+  // grid videos open in a capped-size lightbox — enlarged enough to see, not
+  // stretched so far the source resolution falls apart.
+  // iOS will only decode a handful of videos at once — with every clip in a
+  // room autoplaying, the surplus ones simply render black. This plays only
+  // what is actually on screen and pauses the rest, so a guest never meets a
+  // dead tile during a presentation.
+  const gridVids=document.querySelectorAll('.grid video:not(.is-still)');
+  if(gridVids.length&&'IntersectionObserver' in window){
+    const vo=new IntersectionObserver(entries=>{
+      entries.forEach(en=>{
+        const v=en.target;
+        if(en.isIntersecting){ const pr=v.play(); if(pr&&pr.catch)pr.catch(()=>{}); }
+        else v.pause();
+      });
+    },{rootMargin:'200px 0px',threshold:0.01});
+    gridVids.forEach(v=>{v.pause();vo.observe(v);});
+  }
+
+  const wm=document.getElementById('wordmark');
+  function closeIndex(){index.classList.remove('open');syncOverlayState();document.querySelectorAll('.note.open').forEach(n=>n.classList.remove('open'))}
+  // Wordmark — opens the list of sections from any room. If that list is
+  // already open, tapping it again goes to the actual Cover page. This is
+  // now the only way back to the list/Cover; there's no separate "home".
+  function wordmarkAction(){
+    if(index.classList.contains('open')){
+      closeIndex();
+      lb.classList.remove('open');
+      syncOverlayState();
+      go(0,true);
+    }else{
+      lb.classList.remove('open');
+      index.classList.add('open');
+      syncOverlayState();
+    }
+  }
+  wm.addEventListener('click',wordmarkAction);
+  wm.addEventListener('keydown',e=>{if(e.key==='Enter')wordmarkAction()});
+  const hubBreadcrumb=document.getElementById('hub-breadcrumb');
+  // Closes just the innermost open note — the one with no open note nested
+  // inside it — so tapping the breadcrumb steps back one level at a time
+  // (e.g. Brain Fog -> Writing -> Studio) rather than jumping straight to
+  // the hub's base view and skipping any notes in between.
+  function innermostOpenNote(){
+    const open=[...document.querySelectorAll('.note.open')];
+    return open.find(n=>!n.querySelector('.note.open'))||open[open.length-1]||null;
+  }
+  function closeAllNotes(){
+    innermostOpenNote()?.classList.remove('open');
+    syncHubBreadcrumb();
+  }
+  hubBreadcrumb?.addEventListener('click',closeAllNotes);
+  hubBreadcrumb?.addEventListener('keydown',e=>{if(e.key==='Enter')closeAllNotes()});
+  // The breadcrumb always names whatever tapping it will reveal: if the
+  // innermost open note sits inside ANOTHER note (e.g. Brain Fog inside
+  // Writing), that parent note's own title is shown ("Writing") — not the
+  // top-level hub room's title — since that's where the tap actually lands.
+  // Only once there's no such parent note does it fall back to the hub's
+  // own title ("Studio"), which is the true base of this whole branch.
+  function syncHubBreadcrumb(){
+    if(!hubBreadcrumb)return;
+    const activeHub=document.querySelector('.room[data-hub].active');
+    const current=innermostOpenNote();
+    const parentNote=current?.parentElement?.closest('.note');
+    hubBreadcrumb.textContent=parentNote?.dataset.title || activeHub?.dataset.title || '';
+  }
+  syncHubBreadcrumb();
+  navPrev?.classList.toggle('disabled', cur===0);
+  navNext?.classList.toggle('disabled', cur===rooms.length-1);
+  navPrev?.addEventListener('click',()=>go(cur-1));
+  navPrev?.addEventListener('keydown',e=>{if(e.key==='Enter')go(cur-1)});
+  // From the Cover specifically, "next" opens the section list rather than
+  // jumping straight into the first named room — a guest should choose
+  // where to go, the same way tapping the wordmark or cover title does.
+  function advance(){
+    if(cur===0){index.classList.add('open');syncOverlayState();}
+    else go(cur+1);
+  }
+  navNext?.addEventListener('click',advance);
+  navNext?.addEventListener('keydown',e=>{if(e.key==='Enter')advance()});
+  // The cover title also opens the index, so the list of sections is the
+  // first thing available on arrival.
+  const coverIdx=document.getElementById('cover-index');
+  if(coverIdx){
+    coverIdx.addEventListener('click',()=>{index.classList.add('open');syncOverlayState();});
+    coverIdx.addEventListener('keydown',e=>{if(e.key==='Enter'){index.classList.add('open');syncOverlayState();}});
+  }
+  index.querySelector('.idx-close').addEventListener('click',closeIndex);
+})();
+</script>
+</body>
+</html>
